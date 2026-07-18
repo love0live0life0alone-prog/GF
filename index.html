@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0d1117">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>نظام تحميل المصنع</title>
+    <link rel="manifest" id="pwaManifest">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { cairo: ['Cairo', 'sans-serif'] } } } }
+    </script>
+    <style>
+        :root {
+            --bg-primary:#0d1117;--bg-secondary:#161b22;--bg-card:#1c2333;--bg-card-hover:#242e42;
+            --border:#30363d;--text-primary:#e6edf3;--text-secondary:#7d8590;
+            --accent:#00d68f;--accent-hover:#00f5a0;--accent-dim:rgba(0,214,143,0.08);
+            --warning:#f0883e;--danger:#f85149;--info:#58a6ff;--success:#3fb950;
+        }
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:'Cairo',sans-serif;background:var(--bg-primary);color:var(--text-primary);min-height:100vh;overflow-x:hidden}
+        .screen{display:none;min-height:100vh}.screen.active{display:flex;flex-direction:column}
+        .bg-animated{background:linear-gradient(135deg,#0d1117 0%,#0f1923 25%,#0d1117 50%,#111d2b 75%,#0d1117 100%);background-size:400% 400%;animation:bgShift 20s ease infinite}
+        @keyframes bgShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+        .card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;transition:all .3s ease}
+        .card:hover{border-color:rgba(0,214,143,.3)}
+        .btn-primary{background:var(--accent);color:#0d1117;font-weight:700;border:none;border-radius:10px;padding:10px 24px;cursor:pointer;transition:all .25s;font-family:'Cairo',sans-serif;font-size:15px}
+        .btn-primary:hover{background:var(--accent-hover);transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,214,143,.3)}
+        .btn-secondary{background:transparent;color:var(--text-primary);font-weight:600;border:1px solid var(--border);border-radius:10px;padding:10px 24px;cursor:pointer;transition:all .25s;font-family:'Cairo',sans-serif;font-size:15px}
+        .btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
+        .btn-danger{background:rgba(248,81,73,.1);color:var(--danger);font-weight:600;border:1px solid rgba(248,81,73,.3);border-radius:8px;padding:6px 14px;cursor:pointer;transition:all .2s;font-family:'Cairo',sans-serif;font-size:13px}
+        .btn-danger:hover{background:rgba(248,81,73,.2)}
+        .input-field{background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;padding:10px 16px;color:var(--text-primary);font-family:'Cairo',sans-serif;font-size:15px;width:100%;transition:border-color .2s;outline:none}
+        .input-field:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+        .input-field::placeholder{color:var(--text-secondary)}
+        select.input-field{cursor:pointer}select.input-field option{background:var(--bg-secondary);color:var(--text-primary)}
+        .input-error{border-color:var(--danger)!important;box-shadow:0 0 0 3px rgba(248,81,73,.15)!important}
+        .tab-btn{padding:10px 20px;font-family:'Cairo',sans-serif;font-weight:600;font-size:14px;color:var(--text-secondary);background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;transition:all .25s;white-space:nowrap}
+        .tab-btn:hover{color:var(--text-primary)}.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+        .tab-content{display:none}.tab-content.active{display:block;animation:fadeSlide .3s ease}
+        @keyframes fadeSlide{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        .belt-card{position:relative;overflow:hidden}
+        .belt-card::before{content:'';position:absolute;top:0;right:0;width:4px;height:100%;border-radius:0 12px 12px 0;transition:background .3s}
+        .belt-card.belt-green::before{background:var(--success)}.belt-card.belt-red::before{background:var(--danger)}.belt-card.belt-blue::before{background:var(--info)}.belt-card.belt-gray::before{background:#484f58}
+        .belt-card.belt-green{border-color:rgba(63,185,80,.25)}.belt-card.belt-red{border-color:rgba(248,81,73,.25)}.belt-card.belt-blue{border-color:rgba(88,166,255,.25)}
+        .progress-bar{height:8px;background:var(--bg-secondary);border-radius:4px;overflow:hidden}
+        .progress-fill{height:100%;border-radius:4px;transition:width .6s ease}
+        .stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;text-align:center}
+        .stat-value{font-size:28px;font-weight:800;line-height:1.2}.stat-label{font-size:13px;color:var(--text-secondary);margin-top:4px}
+        .toast-container{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;width:90%;max-width:420px}
+        .toast{padding:14px 20px;border-radius:10px;font-weight:600;font-size:14px;animation:toastIn .3s ease,toastOut .3s ease 2.7s forwards;pointer-events:auto;display:flex;align-items:center;gap:10px;backdrop-filter:blur(10px)}
+        .toast-success{background:rgba(63,185,80,.15);border:1px solid rgba(63,185,80,.3);color:var(--success)}
+        .toast-error{background:rgba(248,81,73,.15);border:1px solid rgba(248,81,73,.3);color:var(--danger)}
+        .toast-warning{background:rgba(240,136,62,.15);border:1px solid rgba(240,136,62,.3);color:var(--warning)}
+        .toast-info{background:rgba(88,166,255,.15);border:1px solid rgba(88,166,255,.3);color:var(--info)}
+        @keyframes toastIn{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes toastOut{from{opacity:1}to{opacity:0;transform:translateY(-10px)}}
+        .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+        .modal-overlay.active{display:flex;animation:fadeIn .2s ease}
+        .modal-box{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:440px;width:90%;animation:scaleIn .25s ease}
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes scaleIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+        .trolley-row{transition:background .2s}.trolley-row:hover{background:var(--bg-card-hover)}
+        .trolley-row.loaded{border-right:3px solid var(--accent)}.trolley-row.pending{border-right:3px solid var(--border);opacity:.6}
+        .live-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 2s ease infinite;display:inline-block}
+        @keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,214,143,.4)}50%{opacity:.7;box-shadow:0 0 0 6px rgba(0,214,143,0)}}
+        .tag{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600}
+        .tag-green{background:rgba(63,185,80,.12);color:var(--success)}.tag-red{background:rgba(248,81,73,.12);color:var(--danger)}
+        .tag-blue{background:rgba(88,166,255,.12);color:var(--info)}.tag-gray{background:rgba(72,79,88,.3);color:var(--text-secondary)}
+        .tag-orange{background:rgba(240,136,62,.12);color:var(--warning)}
+        ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg-secondary)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+        @media(max-width:768px){.stat-value{font-size:22px}.tab-btn{padding:8px 12px;font-size:13px}}
+        .checkbox-custom{appearance:none;width:18px;height:18px;border:2px solid var(--border);border-radius:4px;background:var(--bg-secondary);cursor:pointer;transition:all .2s;position:relative}
+        .checkbox-custom:checked{background:var(--accent);border-color:var(--accent)}
+        .checkbox-custom:checked::after{content:'✓';position:absolute;top:-2px;right:2px;color:#0d1117;font-size:13px;font-weight:900}
+        .worker-input-area{background:linear-gradient(135deg,rgba(0,214,143,.05),rgba(0,214,143,.02));border:2px dashed rgba(0,214,143,.3);border-radius:16px;padding:24px}
+        @keyframes successPop{0%{transform:scale(1)}50%{transform:scale(1.05)}100%{transform:scale(1)}}.success-pop{animation:successPop .3s ease}
+        .shake{animation:shake .4s ease}
+        @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+        .pwd-toggle{position:absolute;left:14px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text-secondary);transition:color .2s;background:none;border:none;padding:4px}
+        .pwd-toggle:hover{color:var(--text-primary)}
+        .sql-block{background:#0d1117;border:1px solid var(--border);border-radius:10px;padding:12px;font-family:monospace;font-size:11px;color:#7d8590;max-height:180px;overflow:auto;direction:ltr;text-align:left;white-space:pre-wrap;word-break:break-all;line-height:1.6}
+        .step-num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0}
+        #loadingOverlay{position:fixed;inset:0;z-index:9998;background:rgba(13,17,23,.8);display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+        .spinner{width:40px;height:40px;border:4px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .conn-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+        .conn-ok{background:var(--success);box-shadow:0 0 8px rgba(63,185,80,.5)}
+        .conn-fail{background:var(--danger);box-shadow:0 0 8px rgba(248,81,73,.5)}
+        .conn-wait{background:var(--warning);animation:pulse 1s ease infinite}
+    </style>
+</head>
+<body>
+    <div class="toast-container" id="toastContainer"></div>
+    <div id="loadingOverlay"><div class="spinner"></div></div>
+
+    <div class="modal-overlay" id="warningModal">
+        <div class="modal-box">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background:rgba(240,136,62,.15)"><i class="fas fa-exclamation-triangle" style="color:var(--warning)"></i></div>
+                <h3 class="text-lg font-bold" style="color:var(--warning)">تحذير</h3>
+            </div>
+            <p id="warningModalText" class="mb-6 leading-relaxed" style="color:var(--text-secondary)"></p>
+            <div class="flex gap-3 justify-end"><button class="btn-secondary" onclick="closeModal()">إغلاق</button></div>
+        </div>
+    </div>
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal-box">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background:rgba(248,81,73,.15)"><i class="fas fa-question-circle" style="color:var(--danger)"></i></div>
+                <h3 class="text-lg font-bold">تأكيد</h3>
+            </div>
+            <p id="confirmModalText" class="mb-6 leading-relaxed" style="color:var(--text-secondary)"></p>
+            <div class="flex gap-3 justify-end">
+                <button class="btn-secondary" onclick="closeConfirm()">إلغاء</button>
+                <button class="btn-primary" id="confirmBtn" style="background:var(--danger)">تأكيد</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== شاشة الإعداد ===== -->
+    <div id="setupScreen" class="screen active bg-animated items-center justify-center p-4">
+        <div class="card p-6 w-full max-w-lg" style="animation:scaleIn .4s ease">
+            <div class="text-center mb-6">
+                <div class="w-14 h-14 rounded-2xl mx-auto mb-3 flex items-center justify-center" style="background:var(--accent-dim);border:1px solid rgba(0,214,143,.2)">
+                    <i class="fas fa-database text-xl" style="color:var(--accent)"></i>
+                </div>
+                <h1 class="text-xl font-extrabold mb-1">إعداد التطبيق</h1>
+                <p class="text-xs" style="color:var(--text-secondary)">خطوة واحدة لتفعيل المزامنة بين جميع الأجهزة</p>
+            </div>
+            <!-- الخطوة 1 -->
+            <div class="flex gap-3 mb-4">
+                <div class="step-num" style="background:var(--accent);color:#0d1117">1</div>
+                <div class="flex-1">
+                    <h3 class="font-bold text-sm mb-1">أنشئ مشروع مجاني على Supabase</h3>
+                    <p class="text-xs mb-2" style="color:var(--text-secondary)">ادخل على الموقع واعمل حساب مجاني واختر "New Project"</p>
+                    <a href="https://supabase.com" target="_blank" class="btn-secondary text-xs py-1.5 px-3 inline-flex items-center gap-1">
+                        <i class="fas fa-external-link-alt"></i> supabase.com
+                    </a>
+                </div>
+            </div>
+            <!-- الخطوة 2 -->
+            <div class="flex gap-3 mb-4">
+                <div class="step-num" style="background:var(--accent);color:#0d1117">2</div>
+                <div class="flex-1">
+                    <h3 class="font-bold text-sm mb-1">شغّل كود قاعدة البيانات</h3>
+                    <p class="text-xs mb-2" style="color:var(--text-secondary)">روح لـ SQL Editor والصق الكود ده واضغط Run</p>
+                    <div class="relative">
+                        <div class="sql-block" id="sqlCode"></div>
+                        <button class="absolute top-2 left-2 btn-primary text-xs py-1 px-2" onclick="copySQL()"><i class="fas fa-copy"></i> نسخ</button>
+                    </div>
+                </div>
+            </div>
+            <!-- الخطوة 3 -->
+            <div class="flex gap-3 mb-5">
+                <div class="step-num" style="background:var(--accent);color:#0d1117">3</div>
+                <div class="flex-1">
+                    <h3 class="font-bold text-sm mb-1">أدخل بيانات الاتصال</h3>
+                    <p class="text-xs mb-2" style="color:var(--text-secondary)">من Settings → API: انسخ Project URL و anon public key</p>
+                    <div class="mb-2">
+                        <label class="block text-xs font-semibold mb-1" style="color:var(--text-secondary)">Project URL</label>
+                        <input type="url" id="setupUrl" class="input-field text-sm" placeholder="https://xxxxx.supabase.co" dir="ltr">
+                    </div>
+                    <div class="mb-2">
+                        <label class="block text-xs font-semibold mb-1" style="color:var(--text-secondary)">anon public key</label>
+                        <input type="text" id="setupKey" class="input-field text-sm font-mono" placeholder="eyJhbGciOi..." dir="ltr">
+                    </div>
+                    <div class="flex items-center gap-2 mb-2">
+                        <button class="btn-primary text-sm flex-1" onclick="testConnection()"><i class="fas fa-plug ml-1"></i>اختبر الاتصال</button>
+                        <span class="conn-dot" id="connDot"></span>
+                        <span class="text-xs font-semibold" id="connText" style="color:var(--text-secondary)"></span>
+                    </div>
+                    <button class="btn-primary w-full text-sm" onclick="saveSetup()" id="saveSetupBtn" disabled style="opacity:.5">
+                        <i class="fas fa-check-circle ml-1"></i>حفظ والاستمرار
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== شاشة تسجيل الدخول ===== -->
+    <div id="loginScreen" class="screen bg-animated items-center justify-center p-4">
+        <div class="card p-8 w-full max-w-md" style="animation:scaleIn .4s ease" id="loginCard">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center" style="background:var(--accent-dim);border:1px solid rgba(0,214,143,.2)">
+                    <i class="fas fa-truck-loading text-2xl" style="color:var(--accent)"></i>
+                </div>
+                <h1 class="text-2xl font-extrabold mb-1">نظام تحميل المصنع</h1>
+                <p class="text-sm" style="color:var(--text-secondary)">إدارة وتتبع تحميل التربات</p>
+                <div class="flex items-center justify-center gap-2 mt-2"><span class="live-dot"></span><span class="text-xs" style="color:var(--success)">متصل</span></div>
+            </div>
+            <div class="flex gap-2 mb-6 p-1 rounded-xl" style="background:var(--bg-secondary)">
+                <button id="roleSupervisor" class="flex-1 py-3 rounded-lg font-bold text-sm transition-all" onclick="selectRole('supervisor')"><i class="fas fa-user-shield ml-1"></i> مشرف</button>
+                <button id="roleWorker" class="flex-1 py-3 rounded-lg font-bold text-sm transition-all" onclick="selectRole('worker')"><i class="fas fa-hard-hat ml-1"></i> عامل</button>
+            </div>
+            <div id="loginFields">
+                <div id="supervisorPwdField" class="mb-4">
+                    <label class="block text-sm font-semibold mb-2" style="color:var(--text-secondary)">كلمة السر</label>
+                    <div class="relative">
+                        <input type="password" id="supervisorPwdInput" class="input-field" style="padding-left:44px" placeholder="أدخل كلمة السر" onkeydown="if(event.key==='Enter')doLogin()">
+                        <button class="pwd-toggle" onclick="togglePwd()" type="button"><i class="fas fa-eye" id="pwdEyeIcon"></i></button>
+                    </div>
+                    <p id="pwdError" class="text-xs mt-2 font-semibold" style="color:var(--danger);display:none"><i class="fas fa-lock ml-1"></i>كلمة السر غير صحيحة</p>
+                </div>
+                <div id="workerNameField" style="display:none" class="mb-4">
+                    <label class="block text-sm font-semibold mb-2" style="color:var(--text-secondary)">اختر اسمك</label>
+                    <select id="workerNameSelect" class="input-field" onchange="doLogin()"><option value="">-- اختر --</option></select>
+                </div>
+            </div>
+            <button class="btn-primary w-full py-3 text-base" onclick="doLogin()"><i class="fas fa-sign-in-alt ml-1"></i> دخول</button>
+        </div>
+    </div>
+
+    <!-- ===== شاشة المشرف ===== -->
+    <div id="supervisorScreen" class="screen">
+        <header class="sticky top-0 z-50" style="background:rgba(13,17,23,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)">
+            <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-lg flex items-center justify-center" style="background:var(--accent-dim)"><i class="fas fa-truck-loading" style="color:var(--accent)"></i></div>
+                    <div>
+                        <h2 class="text-sm font-bold leading-tight">نظام تحميل المصنع</h2>
+                        <div class="flex items-center gap-2 text-xs" style="color:var(--text-secondary)"><span class="live-dot"></span><span id="headerDate"></span><span>|</span><span id="headerClock"></span></div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button class="btn-secondary text-xs py-2 px-2" onclick="goToSetup()" title="إعدادات الاتصال"><i class="fas fa-database"></i></button>
+                    <button class="btn-secondary text-xs py-2 px-3" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i></button>
+                </div>
+            </div>
+            <div class="max-w-7xl mx-auto px-4 flex gap-1 overflow-x-auto" style="border-top:1px solid var(--border)">
+                <button class="tab-btn active" data-tab="dashboard" onclick="switchTab('dashboard',this)"><i class="fas fa-tachometer-alt ml-1"></i>لوحة التحكم</button>
+                <button class="tab-btn" data-tab="belts" onclick="switchTab('belts',this)"><i class="fas fa-project-diagram ml-1"></i>السيور</button>
+                <button class="tab-btn" data-tab="settings" onclick="switchTab('settings',this)"><i class="fas fa-cog ml-1"></i>الإعدادات</button>
+                <button class="tab-btn" data-tab="records" onclick="switchTab('records',this)"><i class="fas fa-history ml-1"></i>السجلات</button>
+            </div>
+        </header>
+        <main class="flex-1 max-w-7xl mx-auto w-full p-4">
+            <div id="tab-dashboard" class="tab-content active"></div>
+            <div id="tab-belts" class="tab-content"></div>
+            <div id="tab-settings" class="tab-content"></div>
+            <div id="tab-records" class="tab-content"></div>
+        </main>
+    </div>
+
+    <!-- ===== شاشة العامل ===== -->
+    <div id="workerScreen" class="screen">
+        <header class="sticky top-0 z-50" style="background:rgba(13,17,23,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)">
+            <div class="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-lg flex items-center justify-center" style="background:var(--accent-dim)"><i class="fas fa-hard-hat" style="color:var(--accent)"></i></div>
+                    <div>
+                        <h2 class="text-sm font-bold leading-tight">تحميل التربات</h2>
+                        <div class="flex items-center gap-2 text-xs" style="color:var(--text-secondary)"><span class="live-dot"></span><span id="workerHeaderDate"></span></div>
+                    </div>
+                </div>
+                <button class="btn-secondary text-xs py-2 px-3" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i></button>
+            </div>
+        </header>
+        <main class="flex-1 max-w-lg mx-auto w-full p-4" id="workerMain"></main>
+    </div>
+
+<script>
+// ==========================================
+// ثوابت
+// ==========================================
+const NUM_BELTS = 8;
+const SUPERVISOR_PWD = '1234';
+const SETUP_SQL = `CREATE TABLE IF NOT EXISTS trolleys (number INT PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS workers (name TEXT PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS belt_assignments (belt_id INT PRIMARY KEY, workers TEXT[] DEFAULT '{}', target INT DEFAULT 0);
+CREATE TABLE IF NOT EXISTS daily_cartons (record_date TEXT NOT NULL, trolley_number INT NOT NULL, cartons INT DEFAULT 0, PRIMARY KEY (record_date, trolley_number));
+CREATE TABLE IF NOT EXISTS loading_records (id BIGSERIAL PRIMARY KEY, record_date TEXT NOT NULL, trolley_number INT NOT NULL, worker_name TEXT NOT NULL, time_text TEXT NOT NULL, cartons INT DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW());
+DO $$ BEGIN ALTER TABLE trolleys ENABLE ROW LEVEL SECURITY; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "pub" ON trolleys FOR ALL USING (true) WITH CHECK (true); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE workers ENABLE ROW LEVEL SECURITY; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "pub" ON workers FOR ALL USING (true) WITH CHECK (true); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE belt_assignments ENABLE ROW LEVEL SECURITY; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "pub" ON belt_assignments FOR ALL USING (true) WITH CHECK (true); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE daily_cartons ENABLE ROW LEVEL SECURITY; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "pub" ON daily_cartons FOR ALL USING (true) WITH CHECK (true); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE loading_records ENABLE ROW LEVEL SECURITY; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "pub" ON loading_records FOR ALL USING (true) WITH CHECK (true); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE trolleys; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE workers; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE belt_assignments; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE daily_cartons; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE loading_records; EXCEPTION WHEN OTHERS THEN NULL; END $$;`;
+
+// ==========================================
+// متغيرات عامة
+// ==========================================
+let sb = null; // Supabase client
+let currentRole = 'supervisor';
+let currentName = '';
+let loginAttempts = 0;
+let connectionOK = false;
+let recordsDate = '';
+let allCachedData = { trolleys: [], workers: [], belts: {}, cartons: {}, records: [] };
+
+// ==========================================
+// PWA Manifest
+// ==========================================
+(function initPWA() {
+    const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="96" fill="#0d1117"/><rect x="106" y="126" width="300" height="260" rx="24" fill="#1c2333" stroke="#00d68f" stroke-width="8"/><line x1="106" y1="206" x2="406" y2="206" stroke="#00d68f" stroke-width="4"/><line x1="256" y1="126" x2="256" y2="386" stroke="#00d68f" stroke-width="4"/><path d="M160 310 L230 360 L360 220" stroke="#00d68f" stroke-width="16" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    const iconDataUri = 'data:image/svg+xml;base64,' + btoa(iconSvg);
+    const manifest = {
+        name: 'نظام تحميل المصنع', short_name: 'تحميل المصنع',
+        description: 'إدارة وتتبع تحميل التربات', start_url: location.href,
+        display: 'standalone', background_color: '#0d1117', theme_color: '#00d68f',
+        orientation: 'portrait', icons: [{ src: iconDataUri, sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }]
+    };
+    const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+    document.getElementById('pwaManifest').href = URL.createObjectURL(blob);
+    // Apple icon
+    const link = document.createElement('link');
+    link.rel = 'apple-touch-icon'; link.href = iconDataUri;
+    document.head.appendChild(link);
+})();
+
+// ==========================================
+// أدوات
+// ==========================================
+function showLoading() { document.getElementById('loadingOverlay').style.display = 'flex'; }
+function hideLoading() { document.getElementById('loadingOverlay').style.display = 'none'; }
+function getToday() { return new Date().toISOString().split('T')[0]; }
+function arabicDate(d) { return new Date(d).toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }); }
+function showToast(msg, type = 'success') {
+    const icons = { success: 'fa-check-circle', error: 'fa-times-circle', warning: 'fa-exclamation-circle', info: 'fa-info-circle' };
+    const t = document.createElement('div');
+    t.className = `toast toast-${type}`;
+    t.innerHTML = `<i class="fas ${icons[type]}"></i><span>${msg}</span>`;
+    document.getElementById('toastContainer').appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+}
+function showWarningModal(msg) { document.getElementById('warningModalText').innerHTML = msg; document.getElementById('warningModal').classList.add('active'); }
+function closeModal() { document.getElementById('warningModal').classList.remove('active'); }
+let confirmCallback = null;
+function showConfirm(msg, cb) { document.getElementById('confirmModalText').textContent = msg; document.getElementById('confirmModal').classList.add('active'); confirmCallback = cb; }
+function closeConfirm() { document.getElementById('confirmModal').classList.remove('active'); confirmCallback = null; }
+document.getElementById('confirmBtn').addEventListener('click', () => { if (confirmCallback) confirmCallback(); closeConfirm(); });
+function playBeep(f, d, t = 'sine') { try { const c = new (window.AudioContext || window.webkitAudioContext)(), o = c.createOscillator(), g = c.createGain(); o.type = t; o.frequency.value = f; g.gain.value = 0.1; g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + d); o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime + d); } catch {} }
+function playSuccess() { playBeep(880, 0.15); setTimeout(() => playBeep(1100, 0.2), 100); }
+function playWarning() { playBeep(400, 0.2, 'square'); setTimeout(() => playBeep(300, 0.3, 'square'), 150); }
+function copySQL() {
+    navigator.clipboard.writeText(SETUP_SQL).then(() => showToast('تم نسخ الكود', 'success')).catch(() => {
+        const ta = document.createElement('textarea'); ta.value = SETUP_SQL; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+        showToast('تم نسخ الكود', 'success');
+    });
+}
+
+// ==========================================
+// إعداد Supabase
+// ==========================================
+function getSupabaseConfig() {
+    try { return JSON.parse(localStorage.getItem('fac_supabase_config')); } catch { return null; }
+}
+function saveSupabaseConfig(url, key) { localStorage.setItem('fac_supabase_config', JSON.stringify({ url, key })); }
+function initSupabase(url, key) { sb = window.supabase.createClient(url, key); }
+function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+
+async function testConnection() {
+    const url = document.getElementById('setupUrl').value.trim();
+    const key = document.getElementById('setupKey').value.trim();
+    const dot = document.getElementById('connDot');
+    const txt = document.getElementById('connText');
+    const btn = document.getElementById('saveSetupBtn');
+
+    if (!url || !key) { showToast('أدخل URL و Key', 'warning'); return; }
+
+    dot.className = 'conn-dot conn-wait';
+    txt.textContent = 'جاري الاختبار...';
+    txt.style.color = 'var(--warning)';
+
+    try {
+        const client = window.supabase.createClient(url, key);
+        const { data, error } = await client.from('trolleys').select('number').limit(1);
+        if (error) throw error;
+        dot.className = 'conn-dot conn-ok';
+        txt.textContent = 'متصل بنجاح';
+        txt.style.color = 'var(--success)';
+        connectionOK = true;
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        playSuccess();
+    } catch (e) {
+        dot.className = 'conn-dot conn-fail';
+        txt.textContent = 'فشل الاتصال';
+        txt.style.color = 'var(--danger)';
+        connectionOK = false;
+        btn.disabled = true;
+        btn.style.opacity = '.5';
+        playWarning();
+        if (e.message && e.message.includes('does not exist')) {
+            showToast('الجدول مش موجود - شغّل كود SQL الأول', 'error');
+        } else {
+            showToast('تأكد من صحة URL و Key', 'error');
+        }
+    }
+}
+
+function saveSetup() {
+    if (!connectionOK) return;
+    const url = document.getElementById('setupUrl').value.trim();
+    const key = document.getElementById('setupKey').value.trim();
+    saveSupabaseConfig(url, key);
+    initSupabase(url, key);
+    startRealtime();
+    showToast('تم حفظ الإعدادات بنجاح', 'success');
+    selectRole('supervisor');
+    showScreen('loginScreen');
+}
+
+function goToSetup() {
+    const cfg = getSupabaseConfig();
+    if (cfg) {
+        document.getElementById('setupUrl').value = cfg.url || '';
+        document.getElementById('setupKey').value = cfg.key || '';
+        if (connectionOK) {
+            document.getElementById('connDot').className = 'conn-dot conn-ok';
+            document.getElementById('connText').textContent = 'متصل';
+            document.getElementById('connText').style.color = 'var(--success)';
+            document.getElementById('saveSetupBtn').disabled = false;
+            document.getElementById('saveSetupBtn').style.opacity = '1';
+        }
+    }
+    showScreen('setupScreen');
+}
+
+// ==========================================
+// طبقة قاعدة البيانات (Supabase)
+// ==========================================
+async function dbLoadAll() {
+    showLoading();
+    try {
+        const today = getToday();
+        const [t1, t2, t3, t4, t5] = await Promise.all([
+            sb.from('trolleys').select('number').order('number'),
+            sb.from('workers').select('name').order('name'),
+            sb.from('belt_assignments').select('*').order('belt_id'),
+            sb.from('daily_cartons').select('*').eq('record_date', today),
+            sb.from('loading_records').select('*').eq('record_date', today).order('created_at')
+        ]);
+        allCachedData.trolleys = (t1.data || []).map(r => r.number);
+        allCachedData.workers = (t2.data || []).map(r => r.name);
+        allCachedData.belts = {};
+        (t3.data || []).forEach(r => { allCachedData.belts[r.belt_id] = { workers: r.workers || [], target: r.target || 0 }; });
+        for (let i = 1; i <= NUM_BELTS; i++) { if (!allCachedData.belts[i]) allCachedData.belts[i] = { workers: [], target: 0 }; }
+        allCachedData.cartons = {};
+        (t4.data || []).forEach(r => { allCachedData.cartons[r.trolley_number] = r.cartons; });
+        allCachedData.records = (t5.data || []).map(r => ({
+            trolley: r.trolley_number, worker: r.worker_name, time: r.time_text,
+            cartons: r.cartons, timestamp: r.created_at
+        }));
+    } catch (e) {
+        showToast('خطأ في تحميل البيانات: ' + e.message, 'error');
+    }
+    hideLoading();
+}
+
+async function dbAddTrolley(num) {
+    await sb.from('trolleys').upsert({ number: num });
+    allCachedData.trolleys.push(num);
+    allCachedData.trolleys.sort((a, b) => a - b);
+}
+async function dbRemoveTrolley(num) {
+    await sb.from('trolleys').delete().eq('number', num);
+    allCachedData.trolleys = allCachedData.trolleys.filter(t => t !== num);
+}
+async function dbAddWorker(name) {
+    await sb.from('workers').upsert({ name });
+    allCachedData.workers.push(name);
+}
+async function dbRemoveWorker(name) {
+    await sb.from('workers').delete().eq('name', name);
+    allCachedData.workers = allCachedData.workers.filter(w => w !== name);
+}
+async function dbSaveBelts(belts) {
+    for (let i = 1; i <= NUM_BELTS; i++) {
+        await sb.from('belt_assignments').upsert({ belt_id: i, workers: belts[i].workers, target: belts[i].target });
+    }
+    allCachedData.belts = JSON.parse(JSON.stringify(belts));
+}
+async function dbSaveDailyCartons(date, cartons) {
+    // مسح القديم وحفظ الجديد
+    await sb.from('daily_cartons').delete().eq('record_date', date);
+    const rows = Object.entries(cartons).map(([k, v]) => ({ record_date: date, trolley_number: parseInt(k), cartons: v }));
+    if (rows.length) await sb.from('daily_cartons').insert(rows);
+    allCachedData.cartons = { ...cartons };
+}
+async function dbAddRecord(date, record) {
+    const { data } = await sb.from('loading_records').insert({
+        record_date: date, trolley_number: record.trolley, worker_name: record.worker,
+        time_text: record.time, cartons: record.cartons
+    }).select().single();
+    if (data) {
+        allCachedData.records.push({
+            trolley: data.trolley_number, worker: data.worker_name, time: data.time_text,
+            cartons: data.cartons, timestamp: data.created_at
+        });
+    }
+}
+async function dbClearDayRecords(date) {
+    await sb.from('loading_records').delete().eq('record_date', date);
+    allCachedData.records = allCachedData.records.filter(r => {
+        if (!r.timestamp) return true;
+        return !r.timestamp.startsWith(date);
+    });
+}
+
+// ==========================================
+// Real-time subscriptions
+// ==========================================
+let refreshTimer = null;
+function debouncedRefresh() {
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => refreshCurrentView(), 300);
+}
+function startRealtime() {
+    if (!sb) return;
+    const channel = sb.channel('factory-live');
+    ['trolleys', 'workers', 'belt_assignments', 'daily_cartons', 'loading_records'].forEach(table => {
+        channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => {
+            dbLoadAll().then(debouncedRefresh);
+        });
+    });
+    channel.subscribe();
+}
+
+// ==========================================
+// حسابات (من الكاش)
+// ==========================================
+function getWorkerTodayStats(w) {
+    const wr = allCachedData.records.filter(r => r.worker === w);
+    return { trolleyCount: wr.length, cartonTotal: wr.reduce((s, r) => s + (r.cartons || 0), 0), trolleys: wr };
+}
+function getBeltTodayStats(beltId) {
+    const belt = allCachedData.belts[beltId] || { workers: [], target: 0 };
+    const recs = allCachedData.records.filter(r => belt.workers.includes(r.worker));
+    return {
+        ...belt, beltId, loaded: recs.length, remaining: Math.max(0, belt.target - recs.length),
+        cartonTotal: recs.reduce((s, r) => s + (r.cartons || 0), 0),
+        workerStats: belt.workers.map(w => { const ws = getWorkerTodayStats(w); return { name: w, ...ws }; })
+    };
+}
+function getAllBeltStats() { const s = []; for (let i = 1; i <= NUM_BELTS; i++) s.push(getBeltTodayStats(i)); return s; }
+function getBeltColor(loaded, all) {
+    const w = all.filter(b => b.workers.length > 0);
+    if (!w.length) return 'belt-gray';
+    const mx = Math.max(...w.map(b => b.loaded)), mn = Math.min(...w.map(b => b.loaded));
+    if (mx === mn) return 'belt-green'; if (loaded === mx) return 'belt-blue'; if (loaded === mn) return 'belt-red'; return 'belt-green';
+}
+function getOverallStats() {
+    const trolleys = allCachedData.trolleys, recs = allCachedData.records, dc = allCachedData.cartons;
+    const loaded = recs.length, loadedSet = new Set(recs.map(r => r.trolley));
+    let remCartons = 0; trolleys.forEach(t => { if (!loadedSet.has(t) && dc[t]) remCartons += dc[t]; });
+    return { totalTrolleys: trolleys.length, loaded, remaining: trolleys.length - loaded, loadedCartons: recs.reduce((s, r) => s + (r.cartons || 0), 0), remainingCartons: remCartons };
+}
+
+// ==========================================
+// تسجيل الدخول
+// ==========================================
+function selectRole(role) {
+    currentRole = role; loginAttempts = 0;
+    const sup = document.getElementById('roleSupervisor'), wrk = document.getElementById('roleWorker');
+    const supF = document.getElementById('supervisorPwdField'), wrkF = document.getElementById('workerNameField');
+    document.getElementById('pwdError').style.display = 'none';
+    document.getElementById('supervisorPwdInput').classList.remove('input-error');
+    document.getElementById('supervisorPwdInput').value = '';
+    if (role === 'supervisor') {
+        sup.style.cssText = 'background:var(--accent);color:#0d1117'; wrk.style.cssText = 'color:var(--text-secondary)';
+        supF.style.display = 'block'; wrkF.style.display = 'none';
+        setTimeout(() => document.getElementById('supervisorPwdInput').focus(), 50);
+    } else {
+        wrk.style.cssText = 'background:var(--accent);color:#0d1117'; sup.style.cssText = 'color:var(--text-secondary)';
+        supF.style.display = 'none'; wrkF.style.display = 'block';
+        const sel = document.getElementById('workerNameSelect');
+        sel.innerHTML = '<option value="">-- اختر --</option>' + allCachedData.workers.map(w => `<option value="${w}">${w}</option>`).join('');
+    }
+}
+function togglePwd() {
+    const i = document.getElementById('supervisorPwdInput'), ic = document.getElementById('pwdEyeIcon');
+    if (i.type === 'password') { i.type = 'text'; ic.classList.replace('fa-eye', 'fa-eye-slash'); }
+    else { i.type = 'password'; ic.classList.replace('fa-eye-slash', 'fa-eye'); }
+}
+async function doLogin() {
+    if (currentRole === 'supervisor') {
+        const pwd = document.getElementById('supervisorPwdInput').value.trim();
+        if (pwd !== SUPERVISOR_PWD) {
+            loginAttempts++;
+            document.getElementById('loginCard').classList.remove('shake'); void document.getElementById('loginCard').offsetWidth;
+            document.getElementById('loginCard').classList.add('shake');
+            document.getElementById('supervisorPwdInput').classList.add('input-error');
+            document.getElementById('pwdError').style.display = 'block';
+            document.getElementById('pwdError').innerHTML = loginAttempts >= 3 ? '<i class="fas fa-ban ml-1"></i>تم رفض الوصول' : '<i class="fas fa-lock ml-1"></i>كلمة السر غير صحيحة';
+            playWarning(); document.getElementById('supervisorPwdInput').value = ''; document.getElementById('supervisorPwdInput').focus(); return;
+        }
+        currentName = 'المشرف'; showScreen('supervisorScreen'); await dbLoadAll(); renderDashboard();
+    } else {
+        currentName = document.getElementById('workerNameSelect').value;
+        if (!currentName) { showToast('اختر اسمك', 'warning'); return; }
+        document.getElementById('workerHeaderName').textContent = currentName;
+        showScreen('workerScreen'); await dbLoadAll(); renderWorkerView();
+    }
+}
+function doLogout() {
+    currentName = ''; loginAttempts = 0; currentRole = 'supervisor';
+    showScreen('loginScreen'); selectRole('supervisor');
+}
+function switchTab(tab, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active'); document.getElementById('tab-' + tab).classList.add('active');
+    (async () => { await dbLoadAll(); if (tab === 'dashboard') renderDashboard(); else if (tab === 'belts') renderBelts(); else if (tab === 'settings') renderSettings(); else if (tab === 'records') renderRecords(); })();
+}
+
+// ==========================================
+// تسجيل تربة
+// ==========================================
+async function logTrolley(num, name) {
+    if (!allCachedData.trolleys.includes(num)) { showToast(`تربة ${num} غير مسجلة`, 'error'); playWarning(); return false; }
+    const existing = allCachedData.records.find(r => r.trolley === num);
+    if (existing) { showWarningModal(`تربة <strong>${num}</strong> محملة بالفعل بواسطة <strong style="color:var(--accent)">${existing.worker}</strong> الساعة <strong>${existing.time}</strong>`); playWarning(); return false; }
+    if (allCachedData.cartons[num] === undefined) { showToast(`لم يتم تحديد كراتين تربة ${num}`, 'error'); playWarning(); return false; }
+    const now = new Date();
+    const record = { trolley: num, worker: name, time: now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' }), cartons: allCachedData.cartons[num] };
+    await dbAddRecord(getToday(), record);
+    showToast(`تم تسجيل تربة ${num}`, 'success'); playSuccess(); return true;
+}
+
+// ==========================================
+// لوحة تحكم المشرف
+// ==========================================
+function renderDashboard() {
+    const o = getOverallStats(), bs = getAllBeltStats(), trolleys = allCachedData.trolleys, recs = allCachedData.records, dc = allCachedData.cartons;
+    const recMap = {}; recs.forEach(r => { recMap[r.trolley] = r; });
+    let html = '';
+    if (trolleys.length && !trolleys.some(t => dc[t] !== undefined)) {
+        html += `<div class="mb-4 p-3 rounded-xl flex items-center gap-3" style="background:rgba(240,136,62,.1);border:1px solid rgba(240,136,62,.3)"><i class="fas fa-exclamation-triangle" style="color:var(--warning)"></i><span class="text-sm font-semibold" style="color:var(--warning)">لم يتم إدخال عدد الكراتين لليوم</span></div>`;
+    }
+    html += `<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+        <div class="stat-card"><div class="stat-value">${o.totalTrolleys}</div><div class="stat-label">إجمالي التربات</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--accent)">${o.loaded}</div><div class="stat-label">تم تحميلها</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:${o.remaining > 0 ? 'var(--warning)' : 'var(--success)'}">${o.remaining}</div><div class="stat-label">متبقية</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--info)">${o.loadedCartons}</div><div class="stat-label">كراتين محملة</div></div>
+        <div class="stat-card col-span-2 md:col-span-1"><div class="stat-value" style="color:var(--warning)">${o.remainingCartons}</div><div class="stat-label">كراتين متبقية</div></div>
+    </div>`;
+    html += `<div class="card p-4 mb-5"><h3 class="text-sm font-bold mb-3" style="color:var(--text-secondary)"><i class="fas fa-edit ml-1"></i>تسجيل يدوي</h3><div class="flex flex-wrap gap-3 items-end">
+        <div class="flex-1 min-w-[140px]"><select id="manualWorker" class="input-field text-sm"><option value="">-- اختر --</option>${allCachedData.workers.map(w => `<option value="${w}">${w}</option>`).join('')}</select></div>
+        <div class="flex-1 min-w-[100px]"><input type="number" id="manualTrolley" class="input-field text-sm" placeholder="رقم التربة" onkeydown="if(event.key==='Enter')manualLog()"></div>
+        <button class="btn-primary text-sm" onclick="manualLog()"><i class="fas fa-plus ml-1"></i>تسجيل</button></div></div>`;
+    html += `<div class="grid lg:grid-cols-2 gap-5"><div><h3 class="text-sm font-bold mb-3" style="color:var(--text-secondary)"><i class="fas fa-cogs ml-1"></i>حالة السيور</h3><div class="flex flex-col gap-3">`;
+    bs.forEach(b => {
+        const c = b.workers.length ? getBeltColor(b.loaded, bs) : 'belt-gray';
+        const pct = b.target > 0 ? Math.min(100, (b.loaded / b.target) * 100) : 0;
+        const fill = c === 'belt-blue' ? 'var(--info)' : c === 'belt-red' ? 'var(--danger)' : c === 'belt-green' ? 'var(--success)' : 'var(--text-secondary)';
+        const lbl = c === 'belt-blue' ? 'الأعلى' : c === 'belt-red' ? 'الأقل' : c === 'belt-green' ? 'طبيعي' : 'بدون عمال';
+        const tag = c === 'belt-blue' ? 'tag-blue' : c === 'belt-red' ? 'tag-red' : c === 'belt-green' ? 'tag-green' : 'tag-gray';
+        html += `<div class="card belt-card ${c} p-4"><div class="flex items-center justify-between mb-2"><div class="flex items-center gap-2"><span class="font-bold">سير ${b.beltId}</span><span class="tag ${tag}">${lbl}</span></div><span class="text-xs font-semibold" style="color:var(--text-secondary)">${b.loaded}/${b.target}</span></div>
+            <div class="progress-bar mb-2"><div class="progress-fill" style="width:${pct}%;background:${fill}"></div></div>
+            <div class="flex items-center justify-between text-xs mb-2" style="color:var(--text-secondary)"><span>هدف: ${b.target}</span><span>تم: ${b.loaded}</span><span>متبقي: ${b.remaining}</span><span>كراتين: ${b.cartonTotal}</span></div>
+            ${b.workerStats.length ? `<div class="pt-2" style="border-top:1px solid var(--border)">${b.workerStats.map(ws => `<div class="flex items-center justify-between py-1 text-xs"><span class="font-semibold">${ws.name}</span><span style="color:var(--text-secondary)">${ws.trolleyCount} تربة &bull; ${ws.cartonTotal} كرتونة</span></div>`).join('')}</div>` : '<div class="text-xs py-1" style="color:var(--text-secondary)">لا يوجد عمال</div>'}</div>`;
+    });
+    html += `</div></div><div><h3 class="text-sm font-bold mb-3" style="color:var(--text-secondary)"><i class="fas fa-list-ol ml-1"></i>سجل التربات</h3><div class="card overflow-hidden" style="max-height:600px;overflow-y:auto">`;
+    if (!trolleys.length) { html += `<div class="p-6 text-center text-sm" style="color:var(--text-secondary)">لا توجد تربات</div>`; }
+    else { [...trolleys].sort((a, b) => a - b).forEach(t => {
+        const r = recMap[t];
+        if (r) html += `<div class="trolley-row loaded flex items-center justify-between px-4 py-3" style="border-bottom:1px solid var(--border)"><div class="flex items-center gap-3"><span class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold" style="background:var(--accent-dim);color:var(--accent)">${t}</span><div><div class="text-sm font-bold">${r.worker}</div><div class="text-xs" style="color:var(--text-secondary)">${r.time}</div></div></div><span class="tag tag-green">${r.cartons || 0} كرتونة</span></div>`;
+        else html += `<div class="trolley-row pending flex items-center justify-between px-4 py-3" style="border-bottom:1px solid var(--border)"><div class="flex items-center gap-3"><span class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold" style="background:rgba(72,79,88,.2);color:var(--text-secondary)">${t}</span><span class="text-sm" style="color:var(--text-secondary)">لم يتم التحميل</span></div><span class="tag tag-gray">${dc[t] !== undefined ? dc[t] + ' كرتونة' : '--'}</span></div>`;
+    }); }
+    html += `</div></div></div>`;
+    document.getElementById('tab-dashboard').innerHTML = html;
+}
+async function manualLog() {
+    const w = document.getElementById('manualWorker').value, t = parseInt(document.getElementById('manualTrolley').value);
+    if (!w) { showToast('اختر العامل', 'warning'); return; }
+    if (!t || isNaN(t)) { showToast('أدخل رقم التربة', 'warning'); return; }
+    if (await logTrolley(t, w)) { document.getElementById('manualTrolley').value = ''; await dbLoadAll(); renderDashboard(); }
+}
+
+// ==========================================
+// تقسيم السيور
+// ==========================================
+function renderBelts() {
+    const belts = allCachedData.belts, workers = allCachedData.workers;
+    let html = `<div class="mb-4 p-3 rounded-xl text-sm" style="background:var(--accent-dim);border:1px solid rgba(0,214,143,.2);color:var(--accent)"><i class="fas fa-info-circle ml-1"></i>حدد العمال والهدف لكل سير ثم احفظ</div><div class="grid md:grid-cols-2 gap-4">`;
+    for (let i = 1; i <= NUM_BELTS; i++) {
+        const b = belts[i] || { workers: [], target: 0 };
+        html += `<div class="card p-5"><h3 class="font-bold text-base mb-3 flex items-center gap-2"><span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold" style="background:var(--accent-dim);color:var(--accent)">${i}</span>سير ${i}</h3>
+            <div class="mb-3"><label class="block text-xs font-semibold mb-2" style="color:var(--text-secondary)">العمال</label><div class="flex flex-wrap gap-2">`;
+        workers.forEach(w => { const ch = b.workers.includes(w) ? 'checked' : ''; html += `<label class="flex items-center gap-1 px-3 py-1.5 rounded-lg cursor-pointer text-sm" style="background:${ch ? 'var(--accent-dim)' : 'var(--bg-secondary)'};border:1px solid ${ch ? 'rgba(0,214,143,.3)' : 'var(--border)'}"><input type="checkbox" class="checkbox-custom" data-belt="${i}" data-worker="${w}" ${ch}>${w}</label>`; });
+        if (!workers.length) html += `<span class="text-xs" style="color:var(--text-secondary)">لا يوجد عمال</span>`;
+        html += `</div></div><div><label class="block text-xs font-semibold mb-2" style="color:var(--text-secondary)">هدف التربات</label><input type="number" class="input-field text-sm" style="max-width:120px" data-target="${i}" value="${b.target}" min="0"></div></div>`;
+    }
+    html += `</div><div class="mt-5 flex gap-3"><button class="btn-primary" onclick="saveBelts()"><i class="fas fa-save ml-1"></i>حفظ التقسيم</button><button class="btn-danger" onclick="clearBelts()"><i class="fas fa-eraser ml-1"></i>مسح الكل</button></div>`;
+    document.getElementById('tab-belts').innerHTML = html;
+}
+async function saveBelts() {
+    const belts = {};
+    for (let i = 1; i <= NUM_BELTS; i++) belts[i] = { workers: Array.from(document.querySelectorAll(`[data-belt="${i}"]:checked`)).map(c => c.dataset.worker), target: parseInt(document.querySelector(`[data-target="${i}"]`)?.value) || 0 };
+    const all = []; Object.values(belts).forEach(b => all.push(...b.workers));
+    const dup = all.filter((w, i) => all.indexOf(w) !== i);
+    if (dup.length) { showToast(`عمال على أكثر من سير: ${[...new Set(dup)].join('، ')}`, 'error'); return; }
+    showLoading(); await dbSaveBelts(belts); hideLoading();
+    showToast('تم حفظ التقسيم', 'success'); playSuccess(); renderBelts();
+}
+async function clearBelts() {
+    showConfirm('مسح التقسيم بالكامل؟', async () => { showLoading(); const init = {}; for (let i = 1; i <= NUM_BELTS; i++) init[i] = { workers: [], target: 0 }; await dbSaveBelts(init); hideLoading(); showToast('تم مسح التقسيم', 'info'); renderBelts(); });
+}
+
+// ==========================================
+// الإعدادات
+// ==========================================
+function renderSettings() {
+    const trolleys = allCachedData.trolleys, workers = allCachedData.workers, dc = allCachedData.cartons;
+    const sorted = [...trolleys].sort((a, b) => a - b);
+    const recMap = {}; allCachedData.records.forEach(r => { recMap[r.trolley] = r; });
+    let html = `<div class="card p-5 mb-5">
+        <h3 class="font-bold text-base mb-1"><i class="fas fa-truck ml-2" style="color:var(--accent)"></i>أرقام التربات</h3>
+        <p class="text-xs mb-4" style="color:var(--text-secondary)">ثابتة ولا تتغير يومياً</p>
+        <div class="flex gap-2 mb-3 flex-wrap">
+            <input type="number" id="newTrolleyInput" class="input-field text-sm" style="max-width:150px" placeholder="رقم" min="1" onkeydown="if(event.key==='Enter')addTrolley()">
+            <button class="btn-primary text-sm" onclick="addTrolley()"><i class="fas fa-plus ml-1"></i>إضافة</button>
+            <button class="btn-secondary text-sm" onclick="document.getElementById('bulkArea').style.display=document.getElementById('bulkArea').style.display==='none'?'block':'none'"><i class="fas fa-layer-group ml-1"></i>متعددة</button>
+        </div>
+        <div class="flex flex-wrap gap-2">`;
+    sorted.forEach(t => { html += `<span class="tag tag-green flex items-center gap-1">${t}<button onclick="removeTrolley(${t})" class="hover:text-red-400" style="color:var(--text-secondary)"><i class="fas fa-times text-xs"></i></button></span>`; });
+    if (!sorted.length) html += `<span class="text-xs" style="color:var(--text-secondary)">لا توجد تربات</span>`;
+    html += `</div><div id="bulkArea" style="display:none" class="mt-3 p-3 rounded-xl"><label class="block text-xs font-semibold mb-2" style="color:var(--text-secondary)">أرقام مفصولة بفواصل</label>
+        <div class="flex gap-2"><input type="text" id="bulkInput" class="input-field text-sm flex-1" placeholder="1, 2, 3, 5"><button class="btn-primary text-sm" onclick="bulkAdd()">إضافة</button></div></div></div>`;
+    html += `<div class="card p-5 mb-5">
+        <h3 class="font-bold text-base mb-1"><i class="fas fa-users ml-2" style="color:var(--info)"></i>أسماء العمال</h3>
+        <p class="text-xs mb-4" style="color:var(--text-secondary)"></p>
+        <div class="flex gap-2 mb-3"><input type="text" id="newWorkerInput" class="input-field text-sm flex-1" placeholder="اسم العامل" onkeydown="if(event.key==='Enter')addWorker()"><button class="btn-primary text-sm" onclick="addWorker()"><i class="fas fa-plus ml-1"></i>إضافة</button></div>
+        <div class="flex flex-wrap gap-2">`;
+    workers.forEach(w => { html += `<span class="tag tag-blue flex items-center gap-1"><i class="fas fa-user text-xs"></i>${w}<button onclick="removeWorker('${w.replace(/'/g, "\\'")}')" class="hover:text-red-400" style="color:var(--text-secondary)"><i class="fas fa-times text-xs"></i></button></span>`; });
+    if (!workers.length) html += `<span class="text-xs" style="color:var(--text-secondary)">لا يوجد عمال</span>`;
+    html += `</div></div>`;
+    html += `<div class="card p-5">
+        <div class="flex items-center justify-between mb-1"><h3 class="font-bold text-base"><i class="fas fa-box ml-2" style="color:var(--warning)"></i>كراتين اليوم</h3><span class="text-xs font-semibold" style="color:var(--text-secondary)">${arabicDate(getToday())}</span></div>
+        <p class="text-xs mb-4" style="color:var(--text-secondary)">تتغير يومياً</p>
+        <div class="flex gap-2 mb-3"><input type="number" id="quickCartonVal" class="input-field text-sm" style="max-width:120px" placeholder="عدد"><button class="btn-secondary text-sm" onclick="quickFill()"><i class="fas fa-fill-drip ml-1"></i>تعبئة سريعة</button></div>
+        <div class="overflow-x-auto" style="max-height:400px;overflow-y:auto"><table class="w-full text-sm"><thead><tr style="border-bottom:1px solid var(--border)"><th class="text-right py-2 px-3 font-semibold" style="color:var(--text-secondary)">التربة</th><th class="text-right py-2 px-3 font-semibold" style="color:var(--text-secondary)">الكراتين</th><th class="text-right py-2 px-3 font-semibold" style="color:var(--text-secondary)">الحالة</th></tr></thead><tbody>`;
+    if (!sorted.length) html += `<tr><td colspan="3" class="text-center py-6 text-xs" style="color:var(--text-secondary)">أضف تربات أولاً</td></tr>`;
+    else sorted.forEach(t => {
+        const val = dc[t] !== undefined ? dc[t] : '', loaded = !!recMap[t];
+        html += `<tr style="border-bottom:1px solid var(--border)"><td class="py-2 px-3 font-bold">${t}</td><td class="py-2 px-3"><input type="number" class="input-field text-sm py-1 px-2" style="max-width:100px" data-ct="${t}" value="${val}" min="0" ${loaded ? 'disabled' : ''}></td><td class="py-2 px-3">${loaded ? '<span class="tag tag-green">تم التحميل</span>' : val !== '' ? '<span class="tag tag-orange">جاهزة</span>' : '<span class="tag tag-gray">لم تحدد</span>'}</td></tr>`;
+    });
+    html += `</tbody></table></div><div class="mt-4"><button class="btn-primary" onclick="saveCartons()"><i class="fas fa-save ml-1"></i>حفظ الكراتين</button></div></div>`;
+    html += `<div class="mt-5 card p-5" style="border-color:rgba(248,81,73,.2)"><h3 class="font-bold text-base mb-1" style="color:var(--danger)"><i class="fas fa-exclamation-triangle ml-2"></i>منطقة الخطر</h3><p class="text-xs mb-3" style="color:var(--text-secondary)">مسح سجلات اليوم</p><button class="btn-danger" onclick="clearDay()"><i class="fas fa-trash ml-1"></i>مسح سجلات اليوم</button></div>`;
+    document.getElementById('tab-settings').innerHTML = html;
+}
+async function addTrolley() { const i = document.getElementById('newTrolleyInput'), n = parseInt(i.value); if (!n || isNaN(n)) { showToast('أدخل رقم', 'warning'); return; } if (allCachedData.trolleys.includes(n)) { showToast(`${n} موجودة`, 'warning'); return; } showLoading(); await dbAddTrolley(n); hideLoading(); showToast(`تم إضافة ${n}`, 'success'); playSuccess(); renderSettings(); }
+async function removeTrolley(n) { showConfirm(`حذف تربة ${n}؟`, async () => { showLoading(); await dbRemoveTrolley(n); hideLoading(); showToast(`تم حذف ${n}`, 'info'); renderSettings(); }); }
+async function bulkAdd() { const nums = document.getElementById('bulkInput').value.split(/[,،\s]+/).map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n > 0); if (!nums.length) { showToast('أدخل أرقام', 'warning'); return; } showLoading(); for (const n of nums) { if (!allCachedData.trolleys.includes(n)) await dbAddTrolley(n); } hideLoading(); showToast(`تم إضافة`, 'success'); playSuccess(); document.getElementById('bulkInput').value = ''; renderSettings(); }
+async function addWorker() { const i = document.getElementById('newWorkerInput'), n = i.value.trim(); if (!n) { showToast('أدخل الاسم', 'warning'); return; } if (allCachedData.workers.includes(n)) { showToast(`${n} موجود`, 'warning'); return; } showLoading(); await dbAddWorker(n); hideLoading(); showToast(`تم إضافة ${n}`, 'success'); playSuccess(); renderSettings(); }
+async function removeWorker(n) { showConfirm(`حذف "${n}"؟`, async () => { showLoading(); await dbRemoveWorker(n); const b = allCachedData.belts; Object.keys(b).forEach(k => { b[k].workers = b[k].workers.filter(w => w !== n); }); await dbSaveBelts(b); hideLoading(); showToast(`تم حذف ${n}`, 'info'); renderSettings(); }); }
+function quickFill() { const v = parseInt(document.getElementById('quickCartonVal').value); if (!v || isNaN(v)) { showToast('أدخل عدد', 'warning'); return; } const rm = {}; allCachedData.records.forEach(r => { rm[r.trolley] = true; }); allCachedData.trolleys.forEach(t => { if (!rm[t]) { const i = document.querySelector(`[data-ct="${t}"]`); if (i && !i.disabled) i.value = v; } }); showToast(`تم تعبئة الكل بـ ${v}`, 'info'); }
+async function saveCartons() { const dc = {}; allCachedData.trolleys.forEach(t => { const i = document.querySelector(`[data-ct="${t}"]`); if (i && i.value !== '' && !i.disabled) dc[t] = parseInt(i.value) || 0; }); showLoading(); await dbSaveDailyCartons(getToday(), dc); hideLoading(); showToast('تم حفظ الكراتين', 'success'); playSuccess(); renderSettings(); }
+async function clearDay() { showConfirm('مسح سجلات اليوم؟', async () => { showLoading(); await dbClearDayRecords(getToday()); hideLoading(); showToast('تم المسح', 'info'); renderSettings(); }); }
+
+// ==========================================
+// السجلات
+// ==========================================
+function renderRecords() {
+    if (!recordsDate) recordsDate = getToday();
+    // تحميل سجلات يوم مختلف من قاعدة البيانات
+    const recs = allCachedData.records.filter(r => r.timestamp && r.timestamp.startsWith(recordsDate));
+    let html = `<div class="flex items-center gap-3 mb-5 flex-wrap">
+        <button class="btn-secondary text-sm py-2" onclick="changeRecDate(-1)"><i class="fas fa-chevron-right"></i></button>
+        <input type="date" class="input-field text-sm" style="max-width:200px" value="${recordsDate}" onchange="recordsDate=this.value;loadAndRenderRecords()">
+        <button class="btn-secondary text-sm py-2" onclick="changeRecDate(1)"><i class="fas fa-chevron-left"></i></button>
+        <span class="text-sm font-semibold" style="color:var(--text-secondary)">${arabicDate(recordsDate)}</span>
+        ${recordsDate === getToday() ? '<span class="tag tag-green">اليوم</span>' : ''}
+    </div>`;
+    const tc = recs.length, cc = recs.reduce((s, r) => s + (r.cartons || 0), 0), uw = [...new Set(recs.map(r => r.worker))];
+    html += `<div class="grid grid-cols-3 gap-3 mb-5">
+        <div class="stat-card"><div class="stat-value text-xl" style="color:var(--accent)">${tc}</div><div class="stat-label">تربة</div></div>
+        <div class="stat-card"><div class="stat-value text-xl" style="color:var(--info)">${cc}</div><div class="stat-label">كراتين</div></div>
+        <div class="stat-card"><div class="stat-value text-xl" style="color:var(--warning)">${uw.length}</div><div class="stat-label">عمال</div></div>
+    </div>`;
+    if (uw.length) {
+        html += `<div class="card p-4 mb-5"><h3 class="text-sm font-bold mb-3" style="color:var(--text-secondary)"><i class="fas fa-user-clock ml-1"></i>أداء العمال</h3><div class="grid grid-cols-2 md:grid-cols-4 gap-3">`;
+        uw.forEach(w => { const wr = recs.filter(r => r.worker === w); html += `<div class="p-3 rounded-xl" style="background:var(--bg-secondary);border:1px solid var(--border)"><div class="font-bold text-sm mb-1">${w}</div><div class="text-xs" style="color:var(--text-secondary)">${wr.length} تربة &bull; ${wr.reduce((s, r) => s + (r.cartons || 0), 0)} كرتونة</div></div>`; });
+        html += `</div></div>`;
+    }
+    html += `<div class="card overflow-hidden"><div class="p-4" style="border-bottom:1px solid var(--border)"><h3 class="text-sm font-bold" style="color:var(--text-secondary)"><i class="fas fa-table ml-1"></i>السجل التفصيلي</h3></div><div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr style="background:var(--bg-secondary);border-bottom:1px solid var(--border)"><th class="text-right py-3 px-4 font-semibold" style="color:var(--text-secondary)">م</th><th class="text-right py-3 px-4 font-semibold" style="color:var(--text-secondary)">الوقت</th><th class="text-right py-3 px-4 font-semibold" style="color:var(--text-secondary)">التربة</th><th class="text-right py-3 px-4 font-semibold" style="color:var(--text-secondary)">العامل</th><th class="text-right py-3 px-4 font-semibold" style="color:var(--text-secondary)">الكراتين</th></tr></thead><tbody>`;
+    if (!recs.length) html += `<tr><td colspan="5" class="text-center py-8" style="color:var(--text-secondary)">لا توجد سجلات</td></tr>`;
+    else [...recs].sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || '')).forEach((r, i) => {
+        html += `<tr class="trolley-row" style="border-bottom:1px solid var(--border)"><td class="py-2.5 px-4" style="color:var(--text-secondary)">${i + 1}</td><td class="py-2.5 px-4 font-mono text-xs">${r.time}</td><td class="py-2.5 px-4"><span class="tag tag-green">${r.trolley}</span></td><td class="py-2.5 px-4 font-semibold">${r.worker}</td><td class="py-2.5 px-4">${r.cartons || 0}</td></tr>`;
+    });
+    html += `</tbody></table></div></div>`;
+    document.getElementById('tab-records').innerHTML = html;
+}
+function changeRecDate(d) { const dt = new Date(recordsDate); dt.setDate(dt.getDate() + d); recordsDate = dt.toISOString().split('T')[0]; loadAndRenderRecords(); }
+async function loadAndRenderRecords() {
+    showLoading();
+    const { data } = await sb.from('loading_records').select('*').eq('record_date', recordsDate).order('created_at');
+    // تحديث الكاش المؤقت للسجلات
+    const savedRecords = allCachedData.records;
+    allCachedData.records = (data || []).map(r => ({ trolley: r.trolley_number, worker: r.worker_name, time: r.time_text, cartons: r.cartons, timestamp: r.created_at }));
+    hideLoading();
+    renderRecords();
+    // استعادة كاش اليوم
+    allCachedData.records = savedRecords;
+}
+
+// ==========================================
+// واجهة العامل
+// ==========================================
+function renderWorkerView() {
+    const belts = allCachedData.belts, wb = Object.entries(belts).find(([id, b]) => b.workers.includes(currentName));
+    const trolleys = allCachedData.trolleys, dc = allCachedData.cartons;
+    const recMap = {}; allCachedData.records.forEach(r => { recMap[r.trolley] = r; });
+    const stats = getWorkerTodayStats(currentName);
+    let html = '';
+    if (!wb) {
+        html += `<div class="card p-8 text-center mt-8"><div class="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center" style="background:rgba(240,136,62,.1)"><i class="fas fa-exclamation-triangle text-2xl" style="color:var(--warning)"></i></div><h3 class="font-bold text-lg mb-2">غير مسجل على سير</h3><p class="text-sm" style="color:var(--text-secondary)">تواصل مع المشرف</p></div>`;
+    } else {
+        const [bid, belt] = wb, br = allCachedData.records.filter(r => belt.workers.includes(r.worker));
+        const loaded = br.length, rem = Math.max(0, belt.target - loaded), pct = belt.target > 0 ? Math.min(100, (loaded / belt.target) * 100) : 0;
+        const bc = br.reduce((s, r) => s + (r.cartons || 0), 0);
+        html += `<div class="card p-5 mb-4"><div class="flex items-center gap-2 mb-3"><span class="w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold" style="background:var(--accent-dim);color:var(--accent)">${bid}</span><div><h3 class="font-bold">سير ${bid}</h3><p class="text-xs" style="color:var(--text-secondary)">${belt.workers.join('، ')}</p></div></div>
+            <div class="grid grid-cols-3 gap-3 mb-3">
+                <div class="text-center p-2 rounded-lg" style="background:var(--bg-secondary)"><div class="text-lg font-extrabold" style="color:var(--accent)">${loaded}</div><div class="text-xs" style="color:var(--text-secondary)">تم</div></div>
+                <div class="text-center p-2 rounded-lg" style="background:var(--bg-secondary)"><div class="text-lg font-extrabold" style="color:${rem > 0 ? 'var(--warning)' : 'var(--success)'}">${rem}</div><div class="text-xs" style="color:var(--text-secondary)">متبقي</div></div>
+                <div class="text-center p-2 rounded-lg" style="background:var(--bg-secondary)"><div class="text-lg font-extrabold" style="color:var(--info)">${bc}</div><div class="text-xs" style="color:var(--text-secondary)">كراتين</div></div>
+            </div><div class="progress-bar mb-1"><div class="progress-fill" style="width:${pct}%;background:var(--accent)"></div></div><div class="text-xs text-left" style="color:var(--text-secondary)">${Math.round(pct)}%</div></div>`;
+        html += `<div class="grid grid-cols-2 gap-3 mb-4"><div class="card p-3 text-center"><div class="text-xl font-extrabold" style="color:var(--accent)">${stats.trolleyCount}</div><div class="text-xs" style="color:var(--text-secondary)">ترباتك</div></div><div class="card p-3 text-center"><div class="text-xl font-extrabold" style="color:var(--info)">${stats.cartonTotal}</div><div class="text-xs" style="color:var(--text-secondary)">كراتينك</div></div></div>`;
+        html += `<div class="worker-input-area mb-5" id="workerInputArea"><h3 class="text-sm font-bold mb-3 text-center"><i class="fas fa-keyboard ml-1"></i>تسجيل تحميل تربة</h3>
+            <div class="flex gap-3"><input type="number" id="workerTrolleyInput" class="input-field text-lg text-center font-bold" placeholder="رقم التربة" style="font-size:24px;letter-spacing:4px" onkeydown="if(event.key==='Enter')workerLog()"><button class="btn-primary text-lg px-6" onclick="workerLog()"><i class="fas fa-check"></i></button></div></div>`;
+    }
+    html += `<div class="card overflow-hidden"><div class="p-4" style="border-bottom:1px solid var(--border)"><h3 class="text-sm font-bold" style="color:var(--text-secondary)"><i class="fas fa-list ml-1"></i>سجل التربات</h3></div><div style="max-height:400px;overflow-y:auto">`;
+    if (!trolleys.length) html += `<div class="p-6 text-center text-sm" style="color:var(--text-secondary)">لا توجد تربات</div>`;
+    else [...trolleys].sort((a, b) => a - b).forEach(t => {
+        const r = recMap[t];
+        if (r) { const mine = r.worker === currentName; html += `<div class="trolley-row ${mine ? 'loaded' : ''} flex items-center justify-between px-4 py-3" style="border-bottom:1px solid var(--border);${mine ? '' : 'opacity:.5'}"><div class="flex items-center gap-3"><span class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold" style="background:${mine ? 'var(--accent-dim)' : 'rgba(72,79,88,.2)'};color:${mine ? 'var(--accent)' : 'var(--text-secondary)'}">${t}</span><div><div class="text-sm font-semibold">${r.worker}</div><div class="text-xs" style="color:var(--text-secondary)">${r.time}</div></div></div><span class="tag ${mine ? 'tag-green' : 'tag-gray'}">${r.cartons || 0} كرتونة</span></div>`; }
+        else html += `<div class="trolley-row pending flex items-center justify-between px-4 py-3" style="border-bottom:1px solid var(--border)"><div class="flex items-center gap-3"><span class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold" style="background:rgba(72,79,88,.15);color:var(--text-secondary)">${t}</span><span class="text-sm" style="color:var(--text-secondary)">لم يتم التحميل</span></div><span class="tag tag-gray">${dc[t] !== undefined ? dc[t] + ' كرتونة' : '--'}</span></div>`;
+    });
+    html += `</div></div>`;
+    document.getElementById('workerMain').innerHTML = html;
+    if (wb) setTimeout(() => { const i = document.getElementById('workerTrolleyInput'); if (i) i.focus(); }, 100);
+}
+async function workerLog() {
+    const i = document.getElementById('workerTrolleyInput'), n = parseInt(i.value);
+    if (!n || isNaN(n)) { showToast('أدخل رقم التربة', 'warning'); playWarning(); return; }
+    if (await logTrolley(n, currentName)) {
+        i.value = ''; const a = document.getElementById('workerInputArea'); if (a) { a.classList.add('success-pop'); setTimeout(() => a.classList.remove('success-pop'), 300); }
+        await dbLoadAll(); renderWorkerView();
+    }
+}
+
+// ==========================================
+// التحديث
+// ==========================================
+function refreshCurrentView() {
+    if (document.getElementById('supervisorScreen').classList.contains('active')) {
+        const at = document.querySelector('.tab-btn.active');
+        if (at) { const t = at.dataset.tab; if (t === 'dashboard') renderDashboard(); else if (t === 'belts') renderBelts(); else if (t === 'settings') renderSettings(); else if (t === 'records') renderRecords(); }
+    } else if (document.getElementById('workerScreen').classList.contains('active')) { renderWorkerView(); }
+}
+function updateClock() {
+    const now = new Date(), t = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' }), d = now.toLocaleDateString('ar-EG', { weekday: 'short', day: 'numeric', month: 'short' });
+    const hc = document.getElementById('headerClock'), hd = document.getElementById('headerDate'), wd = document.getElementById('workerHeaderDate');
+    if (hc) hc.textContent = t; if (hd) hd.textContent = d; if (wd) wd.textContent = d + ' ' + t;
+}
+
+// ==========================================
+// التهيئة
+// ==========================================
+async function init() {
+    document.getElementById('sqlCode').textContent = SETUP_SQL;
+    updateClock(); setInterval(updateClock, 1000);
+    recordsDate = getToday();
+
+    const cfg = getSupabaseConfig();
+    if (cfg && cfg.url && cfg.key) {
+        initSupabase(cfg.url, cfg.key);
+        startRealtime();
+        selectRole('supervisor');
+        showScreen('loginScreen');
+    } else {
+        showScreen('setupScreen');
+    }
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
