@@ -104,7 +104,7 @@
                 <h3 class="text-lg font-bold" style="color:var(--warning)">تحذير</h3>
             </div>
             <p id="warningModalText" class="mb-6 leading-relaxed" style="color:var(--text-secondary)"></p>
-            <div class="flex gap-3 justify-end"><button class="btn-secondary" onclick="closeModal()">إغلاق</button></div>
+            <div class="flex gap-3 justify-end"><button class="btn-secondary" onclick="closeModal()">إغلاق</button><button class="btn-primary" id="warningActionBtn" style="display:none"></button></div>
         </div>
     </div>
     <div class="modal-overlay" id="confirmModal">
@@ -172,10 +172,6 @@
                 <p class="text-sm" style="color:var(--text-secondary)">إدارة وتتبع تحميل التربات</p>
                 <div class="flex items-center justify-center gap-2 mt-2"><span class="live-dot"></span><span class="text-xs" style="color:var(--success)">متصل</span></div>
             </div>
-            <div class="flex gap-2 mb-6 p-1 rounded-xl" style="background:var(--bg-secondary)">
-                <button id="roleSupervisor" class="flex-1 py-3 rounded-lg font-bold text-sm transition-all" onclick="selectRole('supervisor')"><i class="fas fa-user-shield ml-1"></i> مشرف</button>
-                <button id="roleWorker" class="flex-1 py-3 rounded-lg font-bold text-sm transition-all" onclick="selectRole('worker')"><i class="fas fa-hard-hat ml-1"></i> عامل</button>
-            </div>
             <div id="loginFields">
                 <div id="supervisorPwdField" class="mb-4">
                     <label class="block text-sm font-semibold mb-2" style="color:var(--text-secondary)">كلمة السر</label>
@@ -184,10 +180,6 @@
                         <button class="pwd-toggle" onclick="togglePwd()" type="button"><i class="fas fa-eye" id="pwdEyeIcon"></i></button>
                     </div>
                     <p id="pwdError" class="text-xs mt-2 font-semibold" style="color:var(--danger);display:none"><i class="fas fa-lock ml-1"></i>كلمة السر غير صحيحة</p>
-                </div>
-                <div id="workerNameField" style="display:none" class="mb-4">
-                    <label class="block text-sm font-semibold mb-2" style="color:var(--text-secondary)">اختر اسمك</label>
-                    <select id="workerNameSelect" class="input-field" onchange="doLogin()"><option value="">-- اختر --</option></select>
                 </div>
             </div>
             <button class="btn-primary w-full py-3 text-base" onclick="doLogin()"><i class="fas fa-sign-in-alt ml-1"></i> دخول</button>
@@ -226,26 +218,6 @@
         </main>
     </div>
 
-    <!-- شاشة العامل -->
-    <div id="workerScreen" class="screen">
-        <header class="sticky top-0 z-50" style="background:rgba(13,17,23,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)">
-            <div class="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-lg flex items-center justify-center" style="background:var(--accent-dim)"><i class="fas fa-hard-hat" style="color:var(--accent)"></i></div>
-                    <div>
-                        <h2 class="text-sm font-bold leading-tight">تحميل التربات</h2>
-                        <div class="flex items-center gap-2 text-xs" style="color:var(--text-secondary)"><span class="live-dot"></span><span id="workerHeaderDate"></span></div>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button class="btn-install" id="installBtnWrk" onclick="installApp()"><i class="fas fa-download"></i> تثبيت</button>
-                    <button class="btn-secondary text-xs py-2 px-3" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i></button>
-                </div>
-            </div>
-        </header>
-        <main class="flex-1 max-w-lg mx-auto w-full p-4" id="workerMain"></main>
-    </div>
-
 <script>
 const NUM_BELTS=8,SUPERVISOR_PWD='1234';
 const SETUP_SQL=`CREATE TABLE IF NOT EXISTS trolleys (number INT PRIMARY KEY);
@@ -276,17 +248,19 @@ let D={trolleys:[],workers:[],belts:{},cartons:{},records:[]};
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{})}
 
 // زر التثبيت
-window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;['installBtnSup','installBtnWrk'].forEach(id=>{const b=document.getElementById(id);if(b)b.style.display='flex'})});
-async function installApp(){if(!deferredPrompt){showToast('التطبيق مثبت بالفعل','info');return}deferredPrompt.prompt();const{outcome}=await deferredPrompt.userChoice;if(outcome==='accepted'){showToast('تم تثبيت التطبيق بنجاح','success');['installBtnSup','installBtnWrk'].forEach(id=>{const b=document.getElementById(id);if(b)b.style.display='none'})}deferredPrompt=null}
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;const b=document.getElementById('installBtnSup');if(b)b.style.display='flex'});
+async function installApp(){if(!deferredPrompt){showToast('التطبيق مثبت بالفعل','info');return}deferredPrompt.prompt();const{outcome}=await deferredPrompt.userChoice;if(outcome==='accepted'){showToast('تم تثبيت التطبيق بنجاح','success');const b=document.getElementById('installBtnSup');if(b)b.style.display='none'}deferredPrompt=null}
 
 // أدوات
 function showLoading(){document.getElementById('loadingOverlay').style.display='flex'}
 function hideLoading(){document.getElementById('loadingOverlay').style.display='none'}
-function getToday(){return new Date().toISOString().split('T')[0]}
+function getToday(){const n=new Date();if(n.getHours()<6)n.setDate(n.getDate()-1);return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`}
 function arabicDate(d){return new Date(d).toLocaleDateString('ar-EG',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}
 function showToast(m,t='success'){const i={success:'fa-check-circle',error:'fa-times-circle',warning:'fa-exclamation-circle',info:'fa-info-circle'},e=document.createElement('div');e.className=`toast toast-${t}`;e.innerHTML=`<i class="fas ${i[t]}"></i><span>${m}</span>`;document.getElementById('toastContainer').appendChild(e);setTimeout(()=>e.remove(),3000)}
-function showWarningModal(m){document.getElementById('warningModalText').innerHTML=m;document.getElementById('warningModal').classList.add('active')}
-function closeModal(){document.getElementById('warningModal').classList.remove('active')}
+let warningCB=null;
+function showWarningModal(m,btnLabel,cb){document.getElementById('warningModalText').innerHTML=m;const btn=document.getElementById('warningActionBtn');if(btnLabel&&cb){btn.style.display='inline-flex';btn.textContent=btnLabel;warningCB=cb}else{btn.style.display='none';warningCB=null}document.getElementById('warningModal').classList.add('active')}
+function closeModal(){document.getElementById('warningModal').classList.remove('active');warningCB=null}
+document.getElementById('warningActionBtn').addEventListener('click',()=>{if(warningCB)warningCB();closeModal()});
 let confirmCB=null;
 function showConfirm(m,cb){document.getElementById('confirmModalText').textContent=m;document.getElementById('confirmModal').classList.add('active');confirmCB=cb}
 function closeConfirm(){document.getElementById('confirmModal').classList.remove('active');confirmCB=null}
@@ -307,14 +281,14 @@ async function testConnection(){
     try{const c=window.supabase.createClient(u,k);const{data,error}=await c.from('trolleys').select('number').limit(1);if(error)throw error;dot.className='conn-dot conn-ok';txt.textContent='متصل بنجاح';txt.style.color='var(--success)';connectionOK=true;btn.disabled=false;btn.style.opacity='1';playSuccess()}
     catch(e){dot.className='conn-dot conn-fail';txt.textContent='فشل الاتصال';txt.style.color='var(--danger)';connectionOK=false;btn.disabled=true;btn.style.opacity='.5';playWarning();showToast(e.message&&e.message.includes('does not exist')?'شغّل كود SQL الأول':'تأكد من البيانات','error')}
 }
-function saveSetup(){if(!connectionOK)return;const u=document.getElementById('setupUrl').value.trim(),k=document.getElementById('setupKey').value.trim();saveCfg(u,k);sb=window.supabase.createClient(u,k);startRT();showToast('تم الحفظ','success');selectRole('supervisor');showScreen('loginScreen')}
+function saveSetup(){if(!connectionOK)return;const u=document.getElementById('setupUrl').value.trim(),k=document.getElementById('setupKey').value.trim();saveCfg(u,k);sb=window.supabase.createClient(u,k);showToast('تم الحفظ','success');selectRole('supervisor');showScreen('loginScreen')}
 function goToSetup(){const c=getCfg();if(c){document.getElementById('setupUrl').value=c.url||'';document.getElementById('setupKey').value=c.key||'';if(connectionOK){document.getElementById('connDot').className='conn-dot conn-ok';document.getElementById('connText').textContent='متصل';document.getElementById('connText').style.color='var(--success)';document.getElementById('saveSetupBtn').disabled=false;document.getElementById('saveSetupBtn').style.opacity='1'}}showScreen('setupScreen')}
 
 // قاعدة البيانات
 async function dbLoad(){
     showLoading();
     try{const t=getToday();const[a,b,c,d,e]=await Promise.all([sb.from('trolleys').select('number').order('number'),sb.from('workers').select('name').order('name'),sb.from('belt_assignments').select('*').order('belt_id'),sb.from('daily_cartons').select('*').eq('record_date',t),sb.from('loading_records').select('*').eq('record_date',t).order('created_at')]);
-    D.trolleys=(a.data||[]).map(r=>r.number);D.workers=(b.data||[]).map(r=>r.name);D.belts={};(c.data||[]).forEach(r=>{D.belts[r.belt_id]={workers:r.workers||[],target:r.target||0}});for(let i=1;i<=NUM_BELTS;i++)if(!D.belts[i])D.belts[i]={workers:[],target:0};D.cartons={};(d.data||[]).forEach(r=>{D.cartons[r.trolley_number]=r.cartons});D.records=(e.data||[]).map(r=>({trolley:r.trolley_number,worker:r.worker_name,time:r.time_text,cartons:r.cartons,timestamp:r.created_at}))}catch(e){showToast('خطأ: '+e.message,'error')}
+    D.trolleys=(a.data||[]).map(r=>r.number);D.workers=(b.data||[]).map(r=>r.name);D.belts={};(c.data||[]).forEach(r=>{D.belts[r.belt_id]={workers:r.workers||[],target:r.target||0}});for(let i=1;i<=NUM_BELTS;i++)if(!D.belts[i])D.belts[i]={workers:[],target:0};D.cartons={};(d.data||[]).forEach(r=>{D.cartons[r.trolley_number]=r.cartons});D.records=(e.data||[]).map(r=>({trolley:r.trolley_number,worker:r.worker_name,time:r.time_text,cartons:r.cartons,timestamp:r.created_at,date:r.record_date}))}catch(e){showToast('خطأ: '+e.message,'error')}
     hideLoading()}
 async function dbAddT(n){await sb.from('trolleys').upsert({number:n});D.trolleys.push(n);D.trolleys.sort((a,b)=>a-b)}
 async function dbRmT(n){await sb.from('trolleys').delete().eq('number',n);D.trolleys=D.trolleys.filter(t=>t!==n)}
@@ -322,7 +296,7 @@ async function dbAddW(n){await sb.from('workers').upsert({name:n});if(!D.workers
 async function dbRmW(n){await sb.from('workers').delete().eq('name',n);D.workers=D.workers.filter(w=>w!==n)}
 async function dbSaveBelts(b){for(let i=1;i<=NUM_BELTS;i++)await sb.from('belt_assignments').upsert({belt_id:i,workers:b[i].workers,target:b[i].target});D.belts=JSON.parse(JSON.stringify(b))}
 async function dbSaveCart(date,c){await sb.from('daily_cartons').delete().eq('record_date',date);const r=Object.entries(c).map(([k,v])=>({record_date:date,trolley_number:parseInt(k),cartons:v}));if(r.length)await sb.from('daily_cartons').insert(r);D.cartons={...c}}
-async function dbAddRec(date,rec){const{data}=await sb.from('loading_records').insert({record_date:date,trolley_number:rec.trolley,worker_name:rec.worker,time_text:rec.time,cartons:rec.cartons}).select().single();if(data)D.records.push({trolley:data.trolley_number,worker:data.worker_name,time:data.time_text,cartons:data.cartons,timestamp:data.created_at})}
+async function dbAddRec(date,rec){const{data}=await sb.from('loading_records').insert({record_date:date,trolley_number:rec.trolley,worker_name:rec.worker,time_text:rec.time,cartons:rec.cartons}).select().single();if(data)D.records.push({trolley:data.trolley_number,worker:data.worker_name,time:data.time_text,cartons:data.cartons,timestamp:data.created_at,date:data.record_date})}
 async function dbClearDay(date){await sb.from('loading_records').delete().eq('record_date',date);D.records=D.records.filter(r=>!r.timestamp||!r.timestamp.startsWith(date))}
 
 let rtTimer=null;
@@ -336,13 +310,14 @@ function bColor(l,all){const w=all.filter(b=>b.workers.length>0);if(!w.length)re
 function oStats(){const t=D.trolleys,r=D.records,dc=D.cartons,l=r.length,ls=new Set(r.map(x=>x.trolley));let rc=0;t.forEach(x=>{if(!ls.has(x)&&dc[x])rc+=dc[x]});return{tt:t.length,loaded:l,rem:t.length-l,lc:r.reduce((s,x)=>s+(x.cartons||0),0),rc}}
 
 // الدخول
-function selectRole(role){currentRole=role;loginAttempts=0;const s=document.getElementById('roleSupervisor'),w=document.getElementById('roleWorker');document.getElementById('pwdError').style.display='none';document.getElementById('supervisorPwdInput').classList.remove('input-error');document.getElementById('supervisorPwdInput').value='';if(role==='supervisor'){s.style.cssText='background:var(--accent);color:#0d1117';w.style.cssText='color:var(--text-secondary)';document.getElementById('supervisorPwdField').style.display='block';document.getElementById('workerNameField').style.display='none';setTimeout(()=>document.getElementById('supervisorPwdInput').focus(),50)}else{w.style.cssText='background:var(--accent);color:#0d1117';s.style.cssText='color:var(--text-secondary)';document.getElementById('supervisorPwdField').style.display='none';document.getElementById('workerNameField').style.display='block';const sel=document.getElementById('workerNameSelect');sel.innerHTML='<option value="">-- اختر --</option>'+D.workers.map(w=>`<option value="${w}">${w}</option>`).join('')}}
+function selectRole(){loginAttempts=0;document.getElementById('pwdError').style.display='none';document.getElementById('supervisorPwdInput').classList.remove('input-error');document.getElementById('supervisorPwdInput').value='';setTimeout(()=>document.getElementById('supervisorPwdInput').focus(),50)}
 function togglePwd(){const i=document.getElementById('supervisorPwdInput'),ic=document.getElementById('pwdEyeIcon');if(i.type==='password'){i.type='text';ic.classList.replace('fa-eye','fa-eye-slash')}else{i.type='password';ic.classList.replace('fa-eye-slash','fa-eye')}}
-async function doLogin(){if(currentRole==='supervisor'){const p=document.getElementById('supervisorPwdInput').value.trim();if(p!==SUPERVISOR_PWD){loginAttempts++;document.getElementById('loginCard').classList.remove('shake');void document.getElementById('loginCard').offsetWidth;document.getElementById('loginCard').classList.add('shake');document.getElementById('supervisorPwdInput').classList.add('input-error');document.getElementById('pwdError').style.display='block';document.getElementById('pwdError').innerHTML=loginAttempts>=3?'<i class="fas fa-ban ml-1"></i>تم رفض الوصول':'<i class="fas fa-lock ml-1"></i>كلمة السر غير صحيحة';playWarning();document.getElementById('supervisorPwdInput').value='';document.getElementById('supervisorPwdInput').focus();return}currentName='المشرف';showScreen('supervisorScreen');await dbLoad();renderDash()}else{currentName=document.getElementById('workerNameSelect').value;if(!currentName){showToast('اختر اسمك','warning');return}document.getElementById('workerHeaderName').textContent=currentName;showScreen('workerScreen');await dbLoad();renderWV()}}
+async function doLogin(){const p=document.getElementById('supervisorPwdInput').value.trim();if(p!==SUPERVISOR_PWD){loginAttempts++;document.getElementById('loginCard').classList.remove('shake');void document.getElementById('loginCard').offsetWidth;document.getElementById('loginCard').classList.add('shake');document.getElementById('supervisorPwdInput').classList.add('input-error');document.getElementById('pwdError').style.display='block';document.getElementById('pwdError').innerHTML=loginAttempts>=3?'<i class="fas fa-ban ml-1"></i>تم رفض الوصول':'<i class="fas fa-lock ml-1"></i>كلمة السر غير صحيحة';playWarning();document.getElementById('supervisorPwdInput').value='';document.getElementById('supervisorPwdInput').focus();return}currentName='المشرف';showScreen('supervisorScreen');await dbLoad();renderDash()}
 function doLogout(){currentName='';loginAttempts=0;currentRole='supervisor';showScreen('loginScreen');selectRole('supervisor')}
 function switchTab(t,btn){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));btn.classList.add('active');document.getElementById('tab-'+t).classList.add('active');(async()=>{await dbLoad();if(t==='dashboard')renderDash();else if(t==='belts')renderBelts();else if(t==='settings')renderSettings();else if(t==='records')renderRecords()})()}
 
-async function logTrolley(n,name){if(!D.trolleys.includes(n)){showToast(`تربة ${n} غير مسجلة`,'error');playWarning();return false}const ex=D.records.find(r=>r.trolley===n);if(ex){showWarningModal(`تربة <strong>${n}</strong> محملة بالفعل بواسطة <strong style="color:var(--accent)">${ex.worker}</strong> الساعة <strong>${ex.time}</strong>`);playWarning();return false}if(D.cartons[n]===undefined){showToast(`لم يتم تحديد كراتين تربة ${n}`,'error');playWarning();return false}const now=new Date();await dbAddRec(getToday(),{trolley:n,worker:name,time:now.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),cartons:D.cartons[n]});showToast(`تم تسجيل تربة ${n}`,'success');playSuccess();return true}
+async function dbUpdateRecOwner(date,trolley,newName){await sb.from('loading_records').update({worker_name:newName}).eq('record_date',date).eq('trolley_number',trolley);const r=D.records.find(x=>x.trolley===trolley);if(r)r.worker=newName}
+async function logTrolley(n,name){if(!D.trolleys.includes(n)){showToast(`تربة ${n} غير مسجلة`,'error');playWarning();return false}const ex=D.records.find(r=>r.trolley===n);if(ex){showWarningModal(`تربة <strong>${n}</strong> محملة بالفعل بواسطة <strong style="color:var(--accent)">${ex.worker}</strong> الساعة <strong>${ex.time}</strong>`,'تعديل الاسم',async()=>{showLoading();await dbUpdateRecOwner(getToday(),n,name);hideLoading();showToast(`تم تعديل تربة ${n} باسم ${name}`,'success');playSuccess();await dbLoad();refreshView()});playWarning();return false}if(D.cartons[n]===undefined){showToast(`لم يتم تحديد كراتين تربة ${n}`,'error');playWarning();return false}const now=new Date();await dbAddRec(getToday(),{trolley:n,worker:name,time:now.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),cartons:D.cartons[n]});showToast(`تم تسجيل تربة ${n}`,'success');playSuccess();return true}
 
 function renderDash(){const o=oStats(),bs=allBS(),tr=D.trolleys,recs=D.records,dc=D.cartons,rm={};recs.forEach(r=>{rm[r.trolley]=r});let h='';if(tr.length&&!tr.some(t=>dc[t]!==undefined))h+=`<div class="mb-4 p-3 rounded-xl flex items-center gap-3" style="background:rgba(240,136,62,.1);border:1px solid rgba(240,136,62,.3)"><i class="fas fa-exclamation-triangle" style="color:var(--warning)"></i><span class="text-sm font-semibold" style="color:var(--warning)">لم يتم إدخال الكراتين لليوم</span></div>`;
 h+=`<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5"><div class="stat-card"><div class="stat-value">${o.tt}</div><div class="stat-label">إجمالي التربات</div></div><div class="stat-card"><div class="stat-value" style="color:var(--accent)">${o.loaded}</div><div class="stat-label">تم تحميلها</div></div><div class="stat-card"><div class="stat-value" style="color:${o.rem>0?'var(--warning)':'var(--success)'}">${o.rem}</div><div class="stat-label">متبقية</div></div><div class="stat-card"><div class="stat-value" style="color:var(--info)">${o.lc}</div><div class="stat-label">كراتين محملة</div></div><div class="stat-card col-span-2 md:col-span-1"><div class="stat-value" style="color:var(--warning)">${o.rc}</div><div class="stat-label">كراتين متبقية</div></div></div>`;
@@ -379,7 +354,7 @@ function qF(){const v=parseInt(document.getElementById('qCV').value);if(!v||isNa
 async function saveC(){const dc={};D.trolleys.forEach(t=>{const i=document.querySelector(`[data-ct="${t}"]`);if(i&&i.value!==''&&!i.disabled)dc[t]=parseInt(i.value)||0});showLoading();await dbSaveCart(getToday(),dc);hideLoading();showToast('تم حفظ الكراتين','success');playSuccess();renderSettings()}
 async function clrDay(){showConfirm('مسح سجلات اليوم؟',async()=>{showLoading();await dbClearDay(getToday());hideLoading();showToast('تم المسح','info');renderSettings()})}
 
-function renderRecords(){if(!recordsDate)recordsDate=getToday();const recs=D.records.filter(r=>r.timestamp&&r.timestamp.startsWith(recordsDate));let h=`<div class="flex items-center gap-3 mb-5 flex-wrap"><button class="btn-secondary text-sm py-2" onclick="chRD(-1)"><i class="fas fa-chevron-right"></i></button><input type="date" class="input-field text-sm" style="max-width:200px" value="${recordsDate}" onchange="recordsDate=this.value;loadRec()"><button class="btn-secondary text-sm py-2" onclick="chRD(1)"><i class="fas fa-chevron-left"></i></button><span class="text-sm font-semibold" style="color:var(--text-secondary)">${arabicDate(recordsDate)}</span>${recordsDate===getToday()?'<span class="tag tag-green">اليوم</span>':''}</div>`;
+function renderRecords(){if(!recordsDate)recordsDate=getToday();const recs=D.records.filter(r=>r.date===recordsDate);let h=`<div class="flex items-center gap-3 mb-5 flex-wrap"><button class="btn-secondary text-sm py-2" onclick="chRD(-1)"><i class="fas fa-chevron-right"></i></button><input type="date" class="input-field text-sm" style="max-width:200px" value="${recordsDate}" onchange="recordsDate=this.value;loadRec()"><button class="btn-secondary text-sm py-2" onclick="chRD(1)"><i class="fas fa-chevron-left"></i></button><span class="text-sm font-semibold" style="color:var(--text-secondary)">${arabicDate(recordsDate)}</span>${recordsDate===getToday()?'<span class="tag tag-green">اليوم</span>':''}</div>`;
 const tc=recs.length,cc=recs.reduce((s,r)=>s+(r.cartons||0),0),uw=[...new Set(recs.map(r=>r.worker))];
 h+=`<div class="grid grid-cols-3 gap-3 mb-5"><div class="stat-card"><div class="stat-value text-xl" style="color:var(--accent)">${tc}</div><div class="stat-label">تربة</div></div><div class="stat-card"><div class="stat-value text-xl" style="color:var(--info)">${cc}</div><div class="stat-label">كراتين</div></div><div class="stat-card"><div class="stat-value text-xl" style="color:var(--warning)">${uw.length}</div><div class="stat-label">عمال</div></div></div>`;
 if(uw.length){h+=`<div class="card p-4 mb-5"><h3 class="text-sm font-bold mb-3" style="color:var(--text-secondary)"><i class="fas fa-user-clock ml-1"></i>أداء العمال</h3><div class="grid grid-cols-2 md:grid-cols-4 gap-3">`;uw.forEach(w=>{const wr=recs.filter(r=>r.worker===w);h+=`<div class="p-3 rounded-xl" style="background:var(--bg-secondary);border:1px solid var(--border)"><div class="font-bold text-sm mb-1">${w}</div><div class="text-xs" style="color:var(--text-secondary)">${wr.length} تربة &bull; ${wr.reduce((s,r)=>s+(r.cartons||0),0)} كرتونة</div></div>`});h+=`</div></div>`}
@@ -388,24 +363,12 @@ if(!recs.length)h+=`<tr><td colspan="5" class="text-center py-8" style="color:va
 else[...recs].sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||'')).forEach((r,i)=>{h+=`<tr class="trolley-row" style="border-bottom:1px solid var(--border)"><td class="py-2.5 px-4" style="color:var(--text-secondary)">${i+1}</td><td class="py-2.5 px-4 font-mono text-xs">${r.time}</td><td class="py-2.5 px-4"><span class="tag tag-green">${r.trolley}</span></td><td class="py-2.5 px-4 font-semibold">${r.worker}</td><td class="py-2.5 px-4">${r.cartons||0}</td></tr>`});
 h+=`</tbody></table></div></div>`;document.getElementById('tab-records').innerHTML=h}
 function chRD(d){const dt=new Date(recordsDate);dt.setDate(dt.getDate()+d);recordsDate=dt.toISOString().split('T')[0];loadRec()}
-async function loadRec(){showLoading();const{data}=await sb.from('loading_records').select('*').eq('record_date',recordsDate).order('created_at');const saved=D.records;D.records=(data||[]).map(r=>({trolley:r.trolley_number,worker:r.worker_name,time:r.time_text,cartons:r.cartons,timestamp:r.created_at}));hideLoading();renderRecords();D.records=saved}
+async function loadRec(){showLoading();const{data}=await sb.from('loading_records').select('*').eq('record_date',recordsDate).order('created_at');const saved=D.records;D.records=(data||[]).map(r=>({trolley:r.trolley_number,worker:r.worker_name,time:r.time_text,cartons:r.cartons,timestamp:r.created_at,date:r.record_date}));hideLoading();renderRecords();D.records=saved}
 
-function renderWV(){const belts=D.belts,wb=Object.entries(belts).find(([id,b])=>b.workers.includes(currentName)),tr=D.trolleys,dc=D.cartons,rm={};D.records.forEach(r=>{rm[r.trolley]=r});const st=wStats(currentName);let h='';
-if(!wb)h+=`<div class="card p-8 text-center mt-8"><div class="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center" style="background:rgba(240,136,62,.1)"><i class="fas fa-exclamation-triangle text-2xl" style="color:var(--warning)"></i></div><h3 class="font-bold text-lg mb-2">غير مسجل على سير</h3><p class="text-sm" style="color:var(--text-secondary)">تواصل مع المشرف</p></div>`;
-else{const[bid,belt]=wb,br=D.records.filter(r=>belt.workers.includes(r.worker)),loaded=br.length,rem=Math.max(0,belt.target-loaded),pct=belt.target>0?Math.min(100,(loaded/belt.target)*100):0,bc=br.reduce((s,r)=>s+(r.cartons||0),0);
-h+=`<div class="card p-5 mb-4"><div class="flex items-center gap-2 mb-3"><span class="w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold" style="background:var(--accent-dim);color:var(--accent)">${bid}</span><div><h3 class="font-bold">سير ${bid}</h3><p class="text-xs" style="color:var(--text-secondary)">${belt.workers.join('، ')}</p></div></div><div class="grid grid-cols-3 gap-3 mb-3"><div class="text-center p-2 rounded-lg" style="background:var(--bg-secondary)"><div class="text-lg font-extrabold" style="color:var(--accent)">${loaded}</div><div class="text-xs" style="color:var(--text-secondary)">تم</div></div><div class="text-center p-2 rounded-lg" style="background:var(--bg-secondary)"><div class="text-lg font-extrabold" style="color:${rem>0?'var(--warning)':'var(--success)'}">${rem}</div><div class="text-xs" style="color:var(--text-secondary)">متبقي</div></div><div class="text-center p-2 rounded-lg" style="background:var(--bg-secondary)"><div class="text-lg font-extrabold" style="color:var(--info)">${bc}</div><div class="text-xs" style="color:var(--text-secondary)">كراتين</div></div></div><div class="progress-bar mb-1"><div class="progress-fill" style="width:${pct}%;background:var(--accent)"></div></div><div class="text-xs text-left" style="color:var(--text-secondary)">${Math.round(pct)}%</div></div>`;
-h+=`<div class="grid grid-cols-2 gap-3 mb-4"><div class="card p-3 text-center"><div class="text-xl font-extrabold" style="color:var(--accent)">${st.tc}</div><div class="text-xs" style="color:var(--text-secondary)">ترباتك</div></div><div class="card p-3 text-center"><div class="text-xl font-extrabold" style="color:var(--info)">${st.cc}</div><div class="text-xs" style="color:var(--text-secondary)">كراتينك</div></div></div>`;
-h+=`<div class="worker-input-area mb-5" id="wIA"><h3 class="text-sm font-bold mb-3 text-center"><i class="fas fa-keyboard ml-1"></i>تسجيل تحميل تربة</h3><div class="flex gap-3"><input type="number" id="wTI" class="input-field text-lg text-center font-bold" placeholder="رقم التربة" style="font-size:24px;letter-spacing:4px" onkeydown="if(event.key==='Enter')wLog()"><button class="btn-primary text-lg px-6" onclick="wLog()"><i class="fas fa-check"></i></button></div></div>`}
-h+=`<div class="card overflow-hidden"><div class="p-4" style="border-bottom:1px solid var(--border)"><h3 class="text-sm font-bold" style="color:var(--text-secondary)"><i class="fas fa-list ml-1"></i>سجل التربات</h3></div><div style="max-height:400px;overflow-y:auto">`;
-if(!tr.length)h+=`<div class="p-6 text-center text-sm" style="color:var(--text-secondary)">لا توجد تربات</div>`;
-else[...tr].sort((a,b)=>a-b).forEach(t=>{const r=rm[t];if(r){const m=r.worker===currentName;h+=`<div class="trolley-row ${m?'loaded':''} flex items-center justify-between px-4 py-3" style="border-bottom:1px solid var(--border);${m?'':'opacity:.5'}"><div class="flex items-center gap-3"><span class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold" style="background:${m?'var(--accent-dim)':'rgba(72,79,88,.2)'};color:${m?'var(--accent)':'var(--text-secondary)'}">${t}</span><div><div class="text-sm font-semibold">${r.worker}</div><div class="text-xs" style="color:var(--text-secondary)">${r.time}</div></div></div><span class="tag ${m?'tag-green':'tag-gray'}">${r.cartons||0} كرتونة</span></div>`}else h+=`<div class="trolley-row pending flex items-center justify-between px-4 py-3" style="border-bottom:1px solid var(--border)"><div class="flex items-center gap-3"><span class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold" style="background:rgba(72,79,88,.15);color:var(--text-secondary)">${t}</span><span class="text-sm" style="color:var(--text-secondary)">لم يتم التحميل</span></div><span class="tag tag-gray">${dc[t]!==undefined?dc[t]+' كرتونة':'--'}</span></div>`});
-h+=`</div></div>`;document.getElementById('workerMain').innerHTML=h;if(wb)setTimeout(()=>{const i=document.getElementById('wTI');if(i)i.focus()},100)}
-async function wLog(){const i=document.getElementById('wTI'),n=parseInt(i.value);if(!n||isNaN(n)){showToast('أدخل رقم التربة','warning');playWarning();return}if(await logTrolley(n,currentName)){i.value='';const a=document.getElementById('wIA');if(a){a.classList.add('success-pop');setTimeout(()=>a.classList.remove('success-pop'),300)}await dbLoad();renderWV()}}
-
-function refreshView(){if(document.getElementById('supervisorScreen').classList.contains('active')){const at=document.querySelector('.tab-btn.active');if(at){const t=at.dataset.tab;if(t==='dashboard')renderDash();else if(t==='belts')renderBelts();else if(t==='settings')renderSettings();else if(t==='records')renderRecords()}}else if(document.getElementById('workerScreen').classList.contains('active'))renderWV()}
+function refreshView(){if(document.getElementById('supervisorScreen').classList.contains('active')){const at=document.querySelector('.tab-btn.active');if(at){const t=at.dataset.tab;if(t==='dashboard')renderDash();else if(t==='belts')renderBelts();else if(t==='settings')renderSettings();else if(t==='records')renderRecords()}}}
 function updateClock(){const n=new Date(),t=n.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),d=n.toLocaleDateString('ar-EG',{weekday:'short',day:'numeric',month:'short'});const hc=document.getElementById('headerClock'),hd=document.getElementById('headerDate'),wd=document.getElementById('workerHeaderDate');if(hc)hc.textContent=t;if(hd)hd.textContent=d;if(wd)wd.textContent=d+' '+t}
 
-async function init(){document.getElementById('sqlCode').textContent=SETUP_SQL;updateClock();setInterval(updateClock,1000);recordsDate=getToday();const c=getCfg();if(c&&c.url&&c.key){sb=window.supabase.createClient(c.url,c.key);startRT();selectRole('supervisor');showScreen('loginScreen')}else showScreen('setupScreen')}
+async function init(){document.getElementById('sqlCode').textContent=SETUP_SQL;updateClock();setInterval(updateClock,1000);recordsDate=getToday();const c=getCfg();if(c&&c.url&&c.key){sb=window.supabase.createClient(c.url,c.key);selectRole('supervisor');showScreen('loginScreen')}else showScreen('setupScreen')}
 document.addEventListener('DOMContentLoaded',init);
 </script>
 </body>
