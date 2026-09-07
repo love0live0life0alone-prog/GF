@@ -1,4 +1,4 @@
-const CACHE = 'factory-v4';
+const CACHE = 'factory-v5';
 const PRECACHE_URLS = [
   './',
   './index.html',
